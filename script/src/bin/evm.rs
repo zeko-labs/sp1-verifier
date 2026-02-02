@@ -10,14 +10,14 @@
 //! RUST_LOG=info cargo run --release --bin evm -- --system plonk
 //! ```
 
-use alloy_sol_types::SolType;
+use alloy_primitives::U256;
 use clap::{Parser, ValueEnum};
-use fibonacci_lib::PublicValuesStruct;
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{
     include_elf, HashableKey, ProverClient, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
 };
 use std::path::PathBuf;
+use std::time::Instant;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
 pub const FIBONACCI_ELF: &[u8] = include_elf!("fibonacci-program");
@@ -26,8 +26,14 @@ pub const FIBONACCI_ELF: &[u8] = include_elf!("fibonacci-program");
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct EVMArgs {
-    #[arg(long, default_value = "20")]
-    n: u32,
+    /// Input a (u64)
+    #[arg(long, default_value_t = 3412)]
+    a: u64,
+
+    /// Input b (u64)
+    #[arg(long, default_value_t = 548748548)]
+    b: u64,
+
     #[arg(long, value_enum, default_value = "groth16")]
     system: ProofSystem,
 }
@@ -42,10 +48,10 @@ enum ProofSystem {
 /// A fixture that can be used to test the verification of SP1 zkVM proofs inside Solidity.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct SP1FibonacciProofFixture {
-    a: u32,
-    b: u32,
-    n: u32,
+struct SP1ProofFixture {
+    a: u64,
+    b: u64,
+    result: String,
     vkey: String,
     public_values: String,
     proof: String,
@@ -54,6 +60,7 @@ struct SP1FibonacciProofFixture {
 fn main() {
     // Setup the logger.
     sp1_sdk::utils::setup_logger();
+    dotenv::dotenv().ok();
 
     // Parse the command line arguments.
     let args = EVMArgs::parse();
@@ -62,40 +69,49 @@ fn main() {
     let client = ProverClient::from_env();
 
     // Setup the program.
+    let t_setup = Instant::now();
     let (pk, vk) = client.setup(FIBONACCI_ELF);
+    println!("⏱ Setup time: {:?}", t_setup.elapsed());
 
     // Setup the inputs.
     let mut stdin = SP1Stdin::new();
-    stdin.write(&args.n);
+    stdin.write(&args.a);
+    stdin.write(&args.b);
 
-    println!("n: {}", args.n);
+    println!("a: {}", args.a);
+    println!("b: {}", args.b);
     println!("Proof System: {:?}", args.system);
 
     // Generate the proof based on the selected proof system.
+    let t_prove = Instant::now();
     let proof = match args.system {
         ProofSystem::Plonk => client.prove(&pk, &stdin).plonk().run(),
         ProofSystem::Groth16 => client.prove(&pk, &stdin).groth16().run(),
     }
     .expect("failed to generate proof");
+    println!("⏱ Proving time: {:?}", t_prove.elapsed());
 
-    create_proof_fixture(&proof, &vk, args.system);
+    create_proof_fixture(&proof, &vk, args.a, args.b, args.system);
 }
 
 /// Create a fixture for the given proof.
 fn create_proof_fixture(
     proof: &SP1ProofWithPublicValues,
     vk: &SP1VerifyingKey,
+    a: u64,
+    b: u64,
     system: ProofSystem,
 ) {
-    // Deserialize the public values.
+    // Deserialize the public values (single U256 = 32 bytes).
     let bytes = proof.public_values.as_slice();
-    let PublicValuesStruct { n, a, b } = PublicValuesStruct::abi_decode(bytes).unwrap();
+    let result_bytes: [u8; 32] = bytes.try_into().expect("public values should be 32 bytes");
+    let result = U256::from_be_bytes(result_bytes);
 
     // Create the testing fixture so we can test things end-to-end.
-    let fixture = SP1FibonacciProofFixture {
+    let fixture = SP1ProofFixture {
         a,
         b,
-        n,
+        result: format!("{}", result),
         vkey: vk.bytes32().to_string(),
         public_values: format!("0x{}", hex::encode(bytes)),
         proof: format!("0x{}", hex::encode(proof.bytes())),
@@ -112,9 +128,10 @@ fn create_proof_fixture(
     // If you need to expose the inputs or outputs of your program, you should commit them in
     // the public values.
     println!("Public Values: {}", fixture.public_values);
+    println!("Result (U256): {}", fixture.result);
 
     // The proof proves to the verifier that the program was executed with some inputs that led to
-    // the give public values.
+    // the given public values.
     println!("Proof Bytes: {}", fixture.proof);
 
     // Save the fixture to a file.
