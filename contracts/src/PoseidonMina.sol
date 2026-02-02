@@ -8,10 +8,6 @@ import {ISP1Verifier} from "@sp1-contracts/ISP1Verifier.sol";
 /// @dev The circuit takes two u64 inputs (a, b) and outputs a single bytes32 hash.
 contract PoseidonMina {
     /// @notice The address of the SP1 verifier contract.
-    /// @dev This can either be a specific SP1Verifier for a specific version, or the
-    ///      SP1VerifierGateway which can be used to verify proofs for any version of SP1.
-    ///      For the list of supported verifiers on each chain, see:
-    ///      https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
     address public verifier;
 
     /// @notice The verification key for the PoseidonMina program.
@@ -31,10 +27,11 @@ contract PoseidonMina {
         view
         returns (bytes32 result)
     {
+        // Check length BEFORE calling verifier (fail fast, save gas)
+        require(_publicValues.length == 32, "Invalid public values length");
+        
         ISP1Verifier(verifier).verifyProof(poseidonMinaProgramVKey, _publicValues, _proofBytes);
         
-        // Public values are just 32 bytes (the U256 hash result)
-        require(_publicValues.length == 32, "Invalid public values length");
         result = bytes32(_publicValues);
     }
 

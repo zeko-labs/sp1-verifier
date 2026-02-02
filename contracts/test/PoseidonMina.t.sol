@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test, console2} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {PoseidonMina} from "../src/PoseidonMina.sol";
 import {SP1VerifierGateway} from "@sp1-contracts/SP1VerifierGateway.sol";
+import {SP1Verifier as SP1VerifierGroth16} from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
+import {SP1Verifier as SP1VerifierPlonk} from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 
 struct SP1ProofFixtureJson {
     uint64 a;
     uint64 b;
     bytes proof;
-    bytes publicValues;
+    bytes32 publicValues;
     string result;
     bytes32 vkey;
 }
@@ -18,8 +20,9 @@ struct SP1ProofFixtureJson {
 contract PoseidonMinaGroth16Test is Test {
     using stdJson for string;
 
-    address verifier;
+    SP1VerifierGateway public gateway;
     PoseidonMina public poseidonMina;
+    SP1ProofFixtureJson public fixture;
 
     function loadFixture() public view returns (SP1ProofFixtureJson memory) {
         string memory root = vm.projectRoot();
@@ -30,59 +33,71 @@ contract PoseidonMinaGroth16Test is Test {
     }
 
     function setUp() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
+        fixture = loadFixture();
 
-        verifier = address(new SP1VerifierGateway(address(1)));
-        poseidonMina = new PoseidonMina(verifier, fixture.vkey);
+        gateway = new SP1VerifierGateway(address(this));
+        SP1VerifierGroth16 verifier = new SP1VerifierGroth16();
+        gateway.addRoute(address(verifier));
+        poseidonMina = new PoseidonMina(address(gateway), fixture.vkey);
     }
 
-    function test_ValidPoseidonProof() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
+    function test_ValidPoseidonProof() public view {
+        bytes memory pubValBytes = abi.encodePacked(fixture.publicValues);
 
-        vm.mockCall(verifier, abi.encodeWithSelector(SP1VerifierGateway.verifyProof.selector), abi.encode(true));
+        uint256 gasBefore = gasleft();
+        bytes32 result = poseidonMina.verifyPoseidonProof(pubValBytes, fixture.proof);
+        uint256 gasUsed = gasBefore - gasleft();
 
-        bytes32 result = poseidonMina.verifyPoseidonProof(fixture.publicValues, fixture.proof);
-        
-        // Verify the result matches the expected hash from fixture
-        bytes32 expectedResult = bytes32(fixture.publicValues);
-        assertEq(result, expectedResult);
-        
-        console.log("a:", fixture.a);
-        console.log("b:", fixture.b);
-        console.logBytes32(result);
+        console2.log("========================================");
+        console2.log("=== GROTH16 - verifyPoseidonProof ===");
+        console2.log("========================================");
+        console2.log("a:", uint256(fixture.a));
+        console2.log("b:", uint256(fixture.b));
+        console2.log("Output:");
+        console2.logBytes32(result);
+        console2.log("Gas used:", gasUsed);
+        console2.log("========================================");
+
+        assertEq(result, fixture.publicValues);
     }
 
-    function test_ValidPoseidonHashVerification() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
+    function test_ValidPoseidonHashVerification() public view {
+        bytes memory pubValBytes = abi.encodePacked(fixture.publicValues);
 
-        vm.mockCall(verifier, abi.encodeWithSelector(SP1VerifierGateway.verifyProof.selector), abi.encode(true));
+        uint256 gasBefore = gasleft();
+        bool valid = poseidonMina.verifyPoseidonHash(
+            pubValBytes,
+            fixture.proof,
+            fixture.publicValues
+        );
+        uint256 gasUsed = gasBefore - gasleft();
 
-        bytes32 expectedHash = bytes32(fixture.publicValues);
-        bool valid = poseidonMina.verifyPoseidonHash(fixture.publicValues, fixture.proof, expectedHash);
+        console2.log("========================================");
+        console2.log("=== GROTH16 - verifyPoseidonHash ===");
+        console2.log("========================================");
+        console2.log("a:", uint256(fixture.a));
+        console2.log("b:", uint256(fixture.b));
+        console2.log("Expected hash:");
+        console2.logBytes32(fixture.publicValues);
+        console2.log("Valid:", valid);
+        console2.log("Gas used:", gasUsed);
+        console2.log("========================================");
+
         assertTrue(valid);
     }
 
-    function testRevert_InvalidPoseidonProof() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
-
-        vm.expectRevert();
-
-        // Create a fake proof
+    function test_RevertOnInvalidProof() public {
+        bytes memory pubValBytes = abi.encodePacked(fixture.publicValues);
         bytes memory fakeProof = new bytes(fixture.proof.length);
 
-        poseidonMina.verifyPoseidonProof(fixture.publicValues, fakeProof);
+        vm.expectRevert();
+        poseidonMina.verifyPoseidonProof(pubValBytes, fakeProof);
     }
 
-    function testRevert_InvalidPublicValuesLength() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
-
-        vm.mockCall(verifier, abi.encodeWithSelector(SP1VerifierGateway.verifyProof.selector), abi.encode(true));
-
-        vm.expectRevert("Invalid public values length");
-
-        // Create invalid public values (wrong length)
+    function test_RevertOnInvalidPublicValuesLength() public {
         bytes memory invalidPublicValues = new bytes(16);
 
+        vm.expectRevert("Invalid public values length");
         poseidonMina.verifyPoseidonProof(invalidPublicValues, fixture.proof);
     }
 }
@@ -90,8 +105,9 @@ contract PoseidonMinaGroth16Test is Test {
 contract PoseidonMinaPlonkTest is Test {
     using stdJson for string;
 
-    address verifier;
+    SP1VerifierGateway public gateway;
     PoseidonMina public poseidonMina;
+    SP1ProofFixtureJson public fixture;
 
     function loadFixture() public view returns (SP1ProofFixtureJson memory) {
         string memory root = vm.projectRoot();
@@ -102,46 +118,64 @@ contract PoseidonMinaPlonkTest is Test {
     }
 
     function setUp() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
+        fixture = loadFixture();
 
-        verifier = address(new SP1VerifierGateway(address(1)));
-        poseidonMina = new PoseidonMina(verifier, fixture.vkey);
+        gateway = new SP1VerifierGateway(address(this));
+        SP1VerifierPlonk verifier = new SP1VerifierPlonk();
+        gateway.addRoute(address(verifier));
+        poseidonMina = new PoseidonMina(address(gateway), fixture.vkey);
     }
 
-    function test_ValidPoseidonProof() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
+    function test_ValidPoseidonProof() public view {
+        bytes memory pubValBytes = abi.encodePacked(fixture.publicValues);
 
-        vm.mockCall(verifier, abi.encodeWithSelector(SP1VerifierGateway.verifyProof.selector), abi.encode(true));
+        uint256 gasBefore = gasleft();
+        bytes32 result = poseidonMina.verifyPoseidonProof(pubValBytes, fixture.proof);
+        uint256 gasUsed = gasBefore - gasleft();
 
-        bytes32 result = poseidonMina.verifyPoseidonProof(fixture.publicValues, fixture.proof);
-        
-        // Verify the result matches the expected hash from fixture
-        bytes32 expectedResult = bytes32(fixture.publicValues);
-        assertEq(result, expectedResult);
-        
-        console.log("a:", fixture.a);
-        console.log("b:", fixture.b);
-        console.logBytes32(result);
+        console2.log("========================================");
+        console2.log("=== PLONK - verifyPoseidonProof ===");
+        console2.log("========================================");
+        console2.log("a:", uint256(fixture.a));
+        console2.log("b:", uint256(fixture.b));
+        console2.log("Output:");
+        console2.logBytes32(result);
+        console2.log("Gas used:", gasUsed);
+        console2.log("========================================");
+
+        assertEq(result, fixture.publicValues);
     }
 
-    function test_ValidPoseidonHashVerification() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
+    function test_ValidPoseidonHashVerification() public view {
+        bytes memory pubValBytes = abi.encodePacked(fixture.publicValues);
 
-        vm.mockCall(verifier, abi.encodeWithSelector(SP1VerifierGateway.verifyProof.selector), abi.encode(true));
+        uint256 gasBefore = gasleft();
+        bool valid = poseidonMina.verifyPoseidonHash(
+            pubValBytes,
+            fixture.proof,
+            fixture.publicValues
+        );
+        uint256 gasUsed = gasBefore - gasleft();
 
-        bytes32 expectedHash = bytes32(fixture.publicValues);
-        bool valid = poseidonMina.verifyPoseidonHash(fixture.publicValues, fixture.proof, expectedHash);
+        console2.log("========================================");
+        console2.log("=== PLONK - verifyPoseidonHash ===");
+        console2.log("========================================");
+        console2.log("a:", uint256(fixture.a));
+        console2.log("b:", uint256(fixture.b));
+        console2.log("Expected hash:");
+        console2.logBytes32(fixture.publicValues);
+        console2.log("Valid:", valid);
+        console2.log("Gas used:", gasUsed);
+        console2.log("========================================");
+
         assertTrue(valid);
     }
 
-    function testRevert_InvalidPoseidonProof() public {
-        SP1ProofFixtureJson memory fixture = loadFixture();
-
-        vm.expectRevert();
-
-        // Create a fake proof
+    function test_RevertOnInvalidProof() public {
+        bytes memory pubValBytes = abi.encodePacked(fixture.publicValues);
         bytes memory fakeProof = new bytes(fixture.proof.length);
 
-        poseidonMina.verifyPoseidonProof(fixture.publicValues, fakeProof);
+        vm.expectRevert();
+        poseidonMina.verifyPoseidonProof(pubValBytes, fakeProof);
     }
 }
