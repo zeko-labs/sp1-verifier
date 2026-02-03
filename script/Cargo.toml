@@ -13,11 +13,24 @@ name = "evm"
 path = "src/bin/evm.rs"
 
 [[bin]]
+name = "sui"
+path = "src/bin/sui.rs"
+
+[[bin]]
 name = "vkey"
 path = "src/bin/vkey.rs"
 
+[[bin]]
+name = "gen_sui_test"
+path = "src/bin/gen_sui_test.rs"
+
+[[bin]]
+name = "sui_gas"
+path = "src/bin/sui_gas.rs"
+
 [dependencies]
 sp1-sdk = "5.0.8"
+sp1-sui = { git = "https://github.com/SoundnessLabs/sp1-sui" }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.200", default-features = false, features = ["derive"] }
 clap = { version = "4.0", features = ["derive", "env"] }
