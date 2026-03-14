@@ -9,8 +9,10 @@ pub fn main() {
     let a: u64 = sp1_zkvm::io::read::<u64>();
     let b: u64 = sp1_zkvm::io::read::<u64>();
 
-    let inputs: Vec<Fp> = [a, b].iter().map(|&v| Fp::from(v)).collect();
+    println!("cycle-tracker-start: poseidon");
+    let inputs = [Fp::from(a), Fp::from(b)];
     let result = Sponge::hash(&inputs);
+    println!("cycle-tracker-end: poseidon");
 
     sp1_zkvm::io::commit_slice(&result.to_be_bytes());
 }
