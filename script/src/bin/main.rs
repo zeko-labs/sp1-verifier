@@ -14,11 +14,14 @@ use alloy_primitives::U256;
 use alloy_sol_types::SolType;
 use clap::Parser;
 use fibonacci_lib::PublicValuesStruct;
-use sp1_sdk::{include_elf, ProverClient, SP1Stdin};
+use sp1_sdk::{
+    blocking::{ProveRequest, Prover, ProverClient},
+    include_elf, Elf, ProvingKey, SP1Stdin,
+};
 use std::time::Instant;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: &[u8] = include_elf!("fibonacci-program");
+pub const FIBONACCI_ELF: Elf = include_elf!("fibonacci-program");
 
 /// The arguments for the command.
 #[derive(Parser, Debug)]
@@ -78,7 +81,7 @@ fn main() {
 
     if args.execute {
         // Execute (mo proof)
-        let (output, report) = client.execute(FIBONACCI_ELF, &stdin).run().unwrap();
+        let (output, report) = client.execute(FIBONACCI_ELF, stdin).run().unwrap();
         println!("Program executed successfully.");
 
         //  Decode public output (commit) -> U256
@@ -93,11 +96,11 @@ fn main() {
         println!("Number of cycles: {}", report.total_instruction_count());
     } else {
         // Prove
-        let (pk, vk) = client.setup(FIBONACCI_ELF);
+        let pk = client.setup(FIBONACCI_ELF).expect("failed to setup elf");
 
         let t_prove = Instant::now();
         let proof = client
-            .prove(&pk, &stdin)
+            .prove(&pk, stdin)
             .run()
             .expect("failed to generate proof");
         let prove_dt = t_prove.elapsed();
@@ -105,7 +108,9 @@ fn main() {
 
         println!("Successfully generated proof!");
 
-        client.verify(&proof, &vk).expect("failed to verify proof");
+        client
+            .verify(&proof, pk.verifying_key(), None)
+            .expect("failed to verify proof");
         println!("Successfully verified proof!");
 
         // 🔓 Decode committed public values from the proof

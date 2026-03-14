@@ -14,13 +14,14 @@ use alloy_primitives::U256;
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
 use sp1_sdk::{
-    include_elf, HashableKey, ProverClient, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
+    blocking::{ProveRequest, Prover, ProverClient},
+    include_elf, Elf, HashableKey, ProvingKey, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
 };
 use std::path::PathBuf;
 use std::time::Instant;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: &[u8] = include_elf!("fibonacci-program");
+pub const FIBONACCI_ELF: Elf = include_elf!("fibonacci-program");
 
 /// The arguments for the EVM command.
 #[derive(Parser, Debug)]
@@ -70,7 +71,7 @@ fn main() {
 
     // Setup the program.
     let t_setup = Instant::now();
-    let (pk, vk) = client.setup(FIBONACCI_ELF);
+    let pk = client.setup(FIBONACCI_ELF).expect("failed to setup elf");
     println!("⏱ Setup time: {:?}", t_setup.elapsed());
 
     // Setup the inputs.
@@ -85,13 +86,13 @@ fn main() {
     // Generate the proof based on the selected proof system.
     let t_prove = Instant::now();
     let proof = match args.system {
-        ProofSystem::Plonk => client.prove(&pk, &stdin).plonk().run(),
-        ProofSystem::Groth16 => client.prove(&pk, &stdin).groth16().run(),
+        ProofSystem::Plonk => client.prove(&pk, stdin).plonk().run(),
+        ProofSystem::Groth16 => client.prove(&pk, stdin).groth16().run(),
     }
     .expect("failed to generate proof");
     println!("⏱ Proving time: {:?}", t_prove.elapsed());
 
-    create_proof_fixture(&proof, &vk, args.a, args.b, args.system);
+    create_proof_fixture(&proof, pk.verifying_key(), args.a, args.b, args.system);
 }
 
 /// Create a fixture for the given proof.
