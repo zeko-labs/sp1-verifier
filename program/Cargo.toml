@@ -7,5 +7,3 @@ edition = "2021"
 alloy-sol-types = { workspace = true }
 sp1-zkvm = "6.0.2"
 fibonacci-lib = { path = "../lib" }
-alloy-primitives = "=0.8.20"
-
