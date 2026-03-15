@@ -92,6 +92,7 @@ fn main() {
         println!("✅ Output matches expected");
 
         println!("Number of cycles: {}", report.total_instruction_count());
+        println!("gas: {:?}", report.gas());
     } else {
         // Prove
         let pk = client.setup(FIBONACCI_ELF).expect("failed to setup elf");
