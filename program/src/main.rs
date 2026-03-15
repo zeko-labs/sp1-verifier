@@ -1,8 +1,6 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-extern crate alloc;
-use alloc::vec::Vec;
 use fibonacci_lib::{Fp, Sponge};
 
 pub fn main() {

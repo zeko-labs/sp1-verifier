@@ -1633,7 +1633,6 @@ dependencies = [
 name = "fibonacci-program"
 version = "0.1.0"
 dependencies = [
- "alloy-sol-types",
  "fibonacci-lib",
  "sp1-zkvm",
 ]
