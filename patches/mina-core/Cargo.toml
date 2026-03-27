@@ -1,0 +1,55 @@
+[package]
+name = "mina-core"
+version = "0.19.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+argon2                           = { version = "0.5.3", features = ["std"] }
+ark-ff                           = { version = "0.5.0", features = ["parallel", "asm", "std"] }
+base64                           = "0.22"
+binprot                          = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
+binprot_derive                   = { git = "https://github.com/openmina/binprot-rs", rev = "400b52c" }
+bs58                             = "0.4.0"
+crypto_secretbox                 = { version = "0.1.1", features = ["std"] }
+flume                            = { version = "0.11.1", features = ["async", "spin"] }
+graphannis-malloc_size_of        = { git = "https://github.com/openmina/graphannis-malloc_size_of.git", rev = "f7da9f6" }
+graphannis-malloc_size_of_derive = { git = "https://github.com/openmina/graphannis-malloc_size_of_derive.git" }
+hex                              = "0.4.3"
+lazy_static                      = "1.4.0"
+libp2p-identity                  = { version = "=0.2.7", features = ["serde", "peerid"] }
+md5                              = "0.7.0"
+mina-curves                      = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-hasher                      = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+mina-macros                      = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0" }
+mina-p2p-messages                = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0" }
+multihash                        = { version = "0.18.1", features = ["blake2b"] }
+once_cell                        = "1"
+poseidon                         = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0" }
+rand                             = "0.8"
+redux                            = { path = "../redux" }
+serde                            = { version = "1", features = ["derive", "rc"] }
+serde_json                       = "1.0.107"
+sha2                             = "0.10"
+slab                             = { version = "0.4.7", features = ["serde"] }
+thiserror                        = "1.0.60"
+time                             = { version = "0.3.36", features = ["formatting", "macros", "parsing"] }
+tokio                            = { version = "1", features = ["sync"] }
+tracing                          = "0.1.44"
+
+# serializable_callbacks excluded for RISC-V (SP1 guest) — linkme not supported
+[target.'cfg(all(not(target_family = "wasm"), not(target_arch = "riscv32")))'.dependencies]
+redux = { path = "../redux", features = ["serializable_callbacks"] }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+wasm-bindgen         = "^0.2.106"
+wasm-bindgen-futures = "^0.4.56"
+wasm_thread          = { version = "^0.3.3", features = ["es_modules"] }
+js-sys               = "0.3.64"
+web-sys              = { version = "0.3.64", features = ["Window", "Response"] }
+
+[dev-dependencies]
+serde_json = "1.0.107"
+
+[features]
+fuzzing = []
