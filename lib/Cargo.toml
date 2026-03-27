@@ -1,19 +1,7 @@
 [package]
-name = "fibonacci-lib"
+name = "zeko_sp1_lib"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-crypto-bigint = { version = "0.5", default-features = false, features = ["extra-sizes"] }
-bytemuck = "1"
-
-[dev-dependencies]
-num-bigint = "0.4"
-
-
-# SP1 patch: U256::mul_mod → syscall_uint256_mulmod in zkVM
-[patch.crates-io]
-crypto-bigint = { git = "https://github.com/sp1-patches/RustCrypto-bigint", tag = "patch-0.5.5-sp1-6.0.0" }
-
-[target.'cfg(target_os = "zkvm")'.dependencies]
-sp1-lib = "6.0.2"
+serde = { workspace = true }

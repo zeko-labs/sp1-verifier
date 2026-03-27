@@ -1,8 +1,16 @@
 [package]
 version = "0.1.0"
-name = "fibonacci-program"
+name = "zkapp-program"
 edition = "2021"
 
 [dependencies]
 sp1-zkvm = "6.0.2"
-fibonacci-lib = { path = "../lib" }
+
+ledger            = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0", package = "mina-tree" }
+mina-core         = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0" }
+mina-p2p-messages = { workspace = true }
+mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
+ark-ff = { version = "0.5.0", features = ["parallel", "asm", "std"] }
+serde = { workspace = true }
+zeko_sp1_lib = { path = "../lib" }
+openssl = { version = "*", features = ["vendored"], optional = true }
