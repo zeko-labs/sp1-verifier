@@ -1,7 +1,0 @@
-[package]
-name = "poseidon_mina"
-edition = "2024.beta"
-version = "0.1.0"
-
-[addresses]
-poseidon_mina = "0x0"
