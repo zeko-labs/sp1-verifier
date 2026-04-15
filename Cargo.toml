@@ -12,12 +12,13 @@ serde = { version = "1", features = ["derive", "rc"] }
 mina-p2p-messages = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0" }
 
 [patch.crates-io]
-#num-bigint               = { git = "https://github.com/openmina/num-bigint",   branch = "rebase-onstack" }
-#num-rational             = { git = "https://github.com/openmina/num-rational", branch = "rebase-onstack" }
-#substrate-bn-succinct-rs = { path = "./patches/substrate-bn" }
+num-bigint   = { git = "https://github.com/openmina/num-bigint",   branch = "rebase-onstack" }
+num-rational = { git = "https://github.com/openmina/num-rational", branch = "rebase-onstack" }
+substrate-bn-succinct-rs = { path = "./patches/substrate-bn" }
 
 [patch."https://github.com/o1-labs/mina-rust"]
 mina-p2p-messages = { path = "./patches/mina-p2p-messages" }
 ledger            = { path = "./patches/ledger", package = "mina-tree" }
 redux             = { path = "./patches/redux" }
 mina-core         = { path = "./patches/mina-core" }
+#mina-vrf          = { path = "./patches/mina-vrf" }

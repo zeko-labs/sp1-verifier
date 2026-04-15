@@ -8,7 +8,7 @@ use std::borrow::Cow;
 pub struct AnyAction(pub Box<dyn std::any::Any>);
 
 #[cfg(feature = "serializable_callbacks")]
-#[cfg(not(target_arch = "riscv32"))]
+#[cfg(not(target_arch = "riscv64"))]
 #[distributed_slice]
 pub static CALLBACKS: [(&str, fn(&str, Box<dyn std::any::Any>) -> AnyAction)];
 
@@ -39,10 +39,10 @@ impl<T: 'static> Callback<T> {
             return fun(args).into();
         }
 
-        #[cfg(any(not(feature = "serializable_callbacks"), target_arch = "riscv32"))]
+        #[cfg(any(not(feature = "serializable_callbacks"), target_arch = "riscv64"))]
         unimplemented!();
 
-        #[cfg(all(feature = "serializable_callbacks", not(target_arch = "riscv32")))]
+        #[cfg(all(feature = "serializable_callbacks", not(target_arch = "riscv64")))]
         {
             // We reach this point only when the callback was deserialized
             for (name, fun) in CALLBACKS {

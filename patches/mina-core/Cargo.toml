@@ -38,7 +38,7 @@ tokio                            = { version = "1", features = ["sync"] }
 tracing                          = "0.1.44"
 
 # serializable_callbacks excluded for RISC-V (SP1 guest) — linkme not supported
-[target.'cfg(all(not(target_family = "wasm"), not(target_arch = "riscv32")))'.dependencies]
+[target.'cfg(all(not(target_family = "wasm"), not(target_arch = "riscv64")))'.dependencies]
 redux = { path = "../redux", features = ["serializable_callbacks"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
