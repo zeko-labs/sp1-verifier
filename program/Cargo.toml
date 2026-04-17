@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 sp1-zkvm          = "6.0.2"
 
+ark-serialize     = { workspace = true }
 ledger            = { workspace = true, default-features = false }
 mina-core         = { workspace = true, default-features = false }
 mina-curves       = { workspace = true }

@@ -11715,6 +11715,7 @@ name = "zkapp-program"
 version = "0.1.0"
 dependencies = [
  "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
  "mina-core",
  "mina-curves",
  "mina-p2p-messages",
@@ -11731,6 +11732,7 @@ dependencies = [
  "alloy-primitives 0.8.20",
  "alloy-sol-types",
  "anyhow",
+ "ark-serialize 0.5.0",
  "base64 0.22.1",
  "bincode",
  "clap",

@@ -17,6 +17,7 @@ alloy-sol-types     = { workspace = true }
 alloy-primitives    = "=0.8.20"
 dotenv          = "0.15.0"
 bincode = { workspace = true }
+ark-serialize = { workspace = true }
 
 mina-node-native  = { workspace = true }
 mina-p2p-messages = { workspace = true }
