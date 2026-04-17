@@ -22,10 +22,6 @@ ledger             = { git = "https://github.com/zeko-labs/mina-rust", branch = 
 rsexp = "0.2.3"
 serde_json = "1.0.107"
 
-[patch.crates-io]
-num-bigint       = { git = "https://github.com/openmina/num-bigint",   branch = "rebase-onstack" }
-num-rational     = { git = "https://github.com/openmina/num-rational", branch = "rebase-onstack" }
-
 # Redirect all mina-rust references (including transitive deps that still point
 # to the o1-labs upstream) to your zeko-labs fork on branch sp1.
 [patch."https://github.com/o1-labs/mina-rust"]
