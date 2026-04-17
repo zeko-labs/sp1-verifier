@@ -7,18 +7,21 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-alloy-sol-types = "1.0"
-serde = { version = "1", features = ["derive", "rc"] }
-mina-p2p-messages = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0" }
+alloy-sol-types    = "1.0"
+serde              = { version = "1", features = ["derive", "rc"] }
+mina-p2p-messages  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
+mina-core          = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
+mina-curves        = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
+ledger             = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1", package = "mina-tree" }
 
 [patch.crates-io]
-num-bigint   = { git = "https://github.com/openmina/num-bigint",   branch = "rebase-onstack" }
-num-rational = { git = "https://github.com/openmina/num-rational", branch = "rebase-onstack" }
-substrate-bn-succinct-rs = { path = "./patches/substrate-bn" }
+num-bigint       = { git = "https://github.com/openmina/num-bigint",   branch = "rebase-onstack" }
+num-rational     = { git = "https://github.com/openmina/num-rational", branch = "rebase-onstack" }
 
+# Redirect all mina-rust references (including transitive deps that still point
+# to the o1-labs upstream) to your zeko-labs fork on branch sp1.
 [patch."https://github.com/o1-labs/mina-rust"]
-mina-p2p-messages = { path = "./patches/mina-p2p-messages" }
-ledger            = { path = "./patches/ledger", package = "mina-tree" }
-redux             = { path = "./patches/redux" }
-mina-core         = { path = "./patches/mina-core" }
-#mina-vrf          = { path = "./patches/mina-vrf" }
+mina-p2p-messages = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
+mina-core         = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
+mina-curves       = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
+ledger            = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1", package = "mina-tree" }
