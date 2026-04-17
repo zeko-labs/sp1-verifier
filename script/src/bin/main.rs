@@ -16,16 +16,11 @@ use sp1_sdk::{
 };
 use std::time::Instant;
 use zeko_sp1_lib::ZkappPublicValues;
-use zkapp_script::parser::parse_graphql_zkapp_file;
 
-use ledger::{
-    scan_state::transaction_logic::{
-        zkapp_command::{verifiable::create, ZkAppCommand},
-        TransactionStatus, WithStatus,
-    },
-    verifier::common::{check, CheckResult},
-    VerificationKey, VerificationKeyWire,
-};
+#[path = "../parser.rs"]
+mod parser;
+use parser::parse_graphql_zkapp_file;
+
 use mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1;
 
 pub const ZKAPP_ELF: Elf = include_elf!("zkapp-program");
@@ -69,39 +64,17 @@ fn main() {
     let vk_wire =
         MinaBaseVerificationKeyWireStableV1::from_base64(vk_b64.trim()).expect("decode vk base64");
 
-    let verification_key: VerificationKey = (&vk_wire).try_into().expect("vk wire -> runtime");
-
-    let cmd: ZkAppCommand = (&parsed.zkapp_command)
-        .try_into()
-        .expect("wire -> runtime ZkAppCommand");
+    eprintln!("✓ parsed");
 
     // ------------------------------------------------------------------
-    // 2. Extract zkapp_stmt on the host
-    // ------------------------------------------------------------------
-    let cmd_verifiable = create(&cmd, false, |_hash, _id| {
-        Ok(VerificationKeyWire::new(verification_key.clone()))
-    })
-    .expect("verifiable::create");
-
-    let with_status = WithStatus {
-        data: ledger::scan_state::transaction_logic::verifiable::UserCommand::ZkAppCommand(
-            Box::new(cmd_verifiable),
-        ),
-        status: TransactionStatus::Applied,
-    };
-
-    let (_, zkapp_stmt, _) = match check(with_status) {
-        CheckResult::ValidAssuming((_valid, mut xs)) => xs.pop().expect("empty"),
-        other => panic!("expected ValidAssuming, got: {other:?}"),
-    };
-
-    eprintln!("✓ zkapp_stmt extracted");
-
-    // ------------------------------------------------------------------
-    // 3. Write inputs to SP1 stdin
+    // 2. Write inputs to SP1 stdin
+    //    Order MUST match sp1_zkvm::io::read() calls in program/src/main.rs
+    //    1. zkapp_command
+    //    2. proof
+    //    3. vk_wire
     // ------------------------------------------------------------------
     let mut stdin = SP1Stdin::new();
-    stdin.write(&zkapp_stmt);
+    stdin.write(&parsed.zkapp_command);
     stdin.write(&parsed.proof);
     stdin.write(&vk_wire);
 
