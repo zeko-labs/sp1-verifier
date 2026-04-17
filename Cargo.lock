@@ -5011,7 +5011,7 @@ dependencies = [
 [[package]]
 name = "mina-core"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "argon2",
  "ark-ff 0.5.0",
@@ -5068,7 +5068,7 @@ dependencies = [
 [[package]]
 name = "mina-fuzzer"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "lazy_static",
  "rand 0.8.5",
@@ -5093,7 +5093,7 @@ dependencies = [
 [[package]]
 name = "mina-macros"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "proc-macro2 1.0.106",
  "quote 1.0.40",
@@ -5103,7 +5103,7 @@ dependencies = [
 [[package]]
 name = "mina-node"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "anyhow",
  "ark-ff 0.5.0",
@@ -5150,7 +5150,7 @@ dependencies = [
 [[package]]
 name = "mina-node-account"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "anyhow",
  "bs58 0.4.0",
@@ -5170,7 +5170,7 @@ dependencies = [
 [[package]]
 name = "mina-node-common"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "anyhow",
  "ark-ff 0.5.0",
@@ -5213,7 +5213,7 @@ dependencies = [
 [[package]]
 name = "mina-node-native"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "anyhow",
  "axum 0.8.9",
@@ -5260,7 +5260,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -5329,7 +5329,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
@@ -5405,7 +5405,7 @@ dependencies = [
 [[package]]
 name = "mina-snark"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -5439,7 +5439,7 @@ dependencies = [
 [[package]]
 name = "mina-tree"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -5494,7 +5494,7 @@ dependencies = [
 [[package]]
 name = "mina-vrf"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -6787,7 +6787,7 @@ checksum = "350e9b48cbc6b0e028b0473b114454c6316e57336ee184ceab6e53f72c178b3e"
 [[package]]
 name = "poseidon"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
@@ -7357,7 +7357,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "enum_dispatch",
  "linkme",
@@ -7931,7 +7931,7 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 [[package]]
 name = "salsa-simple"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#a0f17bb4f21a0bebd8981d59cd5498f1c88689b5"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1#7c7096cf7f26bb3a8c285509b28943e84659d28d"
 dependencies = [
  "generic-array 0.14.7",
  "hex",
@@ -11589,6 +11589,7 @@ dependencies = [
 name = "zeko_sp1_lib"
 version = "0.1.0"
 dependencies = [
+ "mina-p2p-messages",
  "serde",
 ]
 
@@ -11731,6 +11732,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "base64 0.22.1",
+ "bincode",
  "clap",
  "criterion",
  "dotenv",

@@ -9,67 +9,145 @@
 //! RUST_LOG=info cargo run --release -- --prove
 //! ```
 
-#![no_main]
-sp1_zkvm::entrypoint!(main);
-
-use ledger::{proofs::verification::verify_zkapp, verifier::get_srs, VerificationKey};
-use mina_curves::pasta::{Fp, Vesta};
-use mina_p2p_messages::v2::{
-    MinaBaseVerificationKeyWireStableV1, PicklesProofProofsVerified2ReprStableV2,
+use clap::Parser;
+use sp1_sdk::{
+    blocking::{ProveRequest, Prover, ProverClient},
+    include_elf, Elf, ProvingKey, SP1Stdin,
 };
+use std::time::Instant;
 use zeko_sp1_lib::ZkappPublicValues;
+use zkapp_script::parser::parse_graphql_zkapp_file;
 
-// ZkappStatement type — adjust the import path to wherever it lives in your ledger crate
-use ledger::proofs::verification::ZkappStatement;
+use ledger::{
+    scan_state::transaction_logic::{
+        zkapp_command::{verifiable::create, ZkAppCommand},
+        TransactionStatus, WithStatus,
+    },
+    verifier::common::{check, CheckResult},
+    VerificationKey, VerificationKeyWire,
+};
+use mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1;
 
-pub fn main() {
-    // ------------------------------------------------------------------
-    // 1. Read inputs from stdin
-    //    Order MUST match stdin.write() calls in script/src/main.rs
-    //    1. zkapp_stmt  (prepared on host via check())
-    //    2. proof
-    //    3. vk_wire
-    // ------------------------------------------------------------------
-    let zkapp_stmt: ZkappStatement = sp1_zkvm::io::read();
-    let proof: PicklesProofProofsVerified2ReprStableV2 = sp1_zkvm::io::read();
-    let vk_wire: MinaBaseVerificationKeyWireStableV1 = sp1_zkvm::io::read();
+pub const ZKAPP_ELF: Elf = include_elf!("zkapp-program");
 
-    // ------------------------------------------------------------------
-    // 2. Convert wire VK to runtime
-    // ------------------------------------------------------------------
-    let verification_key: VerificationKey = (&vk_wire).try_into().expect("vk wire -> runtime");
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    #[arg(long)]
+    execute: bool,
 
-    // ------------------------------------------------------------------
-    // 3. verify_zkapp — single call, replaces steps 3-6 of the old guest
-    //    accumulator_check + verify_impl are both done inside
-    // ------------------------------------------------------------------
-    let srs = get_srs::<Vesta>();
-    let proof_valid = verify_zkapp(&verification_key, &zkapp_stmt, &proof, &srs);
+    #[arg(long)]
+    prove: bool,
 
-    assert!(proof_valid, "Pickles proof invalid");
+    #[arg(long, default_value = "proofs/graphql.txt")]
+    graphql: String,
 
-    // ------------------------------------------------------------------
-    // 4. Commit public values
-    // ------------------------------------------------------------------
-    let vk_hash = vk_hash_bytes(&verification_key);
-
-    sp1_zkvm::io::commit(&ZkappPublicValues {
-        vk_hash,
-        proof_valid,
-    });
+    #[arg(long, default_value = "proofs/vk.txt")]
+    vk: String,
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
+fn main() {
+    sp1_sdk::utils::setup_logger();
+    dotenv::dotenv().ok();
 
-/// Hash the VK to a [u8; 32] for the public output.
-fn vk_hash_bytes(vk: &VerificationKey) -> [u8; 32] {
-    use ark_serialize::CanonicalSerialize;
-    use sha2::{Digest, Sha256};
-    let mut buf = Vec::new();
-    vk.wrap_index
-        .serialize_uncompressed(&mut buf)
-        .expect("serialize vk");
-    Sha256::digest(&buf).into()
+    let args = Args::parse();
+
+    if args.execute == args.prove {
+        eprintln!("Error: specify either --execute or --prove");
+        std::process::exit(1);
+    }
+
+    // ------------------------------------------------------------------
+    // 1. Parse — host only
+    // ------------------------------------------------------------------
+    let vk_b64 =
+        std::fs::read_to_string(&args.vk).unwrap_or_else(|e| panic!("read vk {}: {e}", args.vk));
+
+    let parsed = parse_graphql_zkapp_file(&args.graphql)
+        .unwrap_or_else(|e| panic!("parse graphql {}: {e}", args.graphql));
+
+    let vk_wire =
+        MinaBaseVerificationKeyWireStableV1::from_base64(vk_b64.trim()).expect("decode vk base64");
+
+    let verification_key: VerificationKey = (&vk_wire).try_into().expect("vk wire -> runtime");
+
+    let cmd: ZkAppCommand = (&parsed.zkapp_command)
+        .try_into()
+        .expect("wire -> runtime ZkAppCommand");
+
+    // ------------------------------------------------------------------
+    // 2. Extract zkapp_stmt on the host
+    // ------------------------------------------------------------------
+    let cmd_verifiable = create(&cmd, false, |_hash, _id| {
+        Ok(VerificationKeyWire::new(verification_key.clone()))
+    })
+    .expect("verifiable::create");
+
+    let with_status = WithStatus {
+        data: ledger::scan_state::transaction_logic::verifiable::UserCommand::ZkAppCommand(
+            Box::new(cmd_verifiable),
+        ),
+        status: TransactionStatus::Applied,
+    };
+
+    let (_, zkapp_stmt, _) = match check(with_status) {
+        CheckResult::ValidAssuming((_valid, mut xs)) => xs.pop().expect("empty"),
+        other => panic!("expected ValidAssuming, got: {other:?}"),
+    };
+
+    eprintln!("✓ zkapp_stmt extracted");
+
+    // ------------------------------------------------------------------
+    // 3. Write inputs to SP1 stdin
+    // ------------------------------------------------------------------
+    let mut stdin = SP1Stdin::new();
+    stdin.write(&zkapp_stmt);
+    stdin.write(&parsed.proof);
+    stdin.write(&vk_wire);
+
+    let client = ProverClient::from_env();
+
+    if args.execute {
+        let (output, report) = client
+            .execute(ZKAPP_ELF, stdin)
+            .run()
+            .expect("execution failed");
+
+        println!("✓ Program executed successfully");
+        println!("  cycles : {}", report.total_instruction_count());
+
+        let public_values: ZkappPublicValues =
+            bincode::deserialize(output.as_slice()).expect("decode public values");
+
+        println!("  proof_valid: {}", public_values.proof_valid);
+        assert!(public_values.proof_valid, "Pickles proof invalid");
+        println!("✅ zkApp proof verified successfully");
+    } else {
+        let pk = client.setup(ZKAPP_ELF).expect("failed to setup ELF");
+
+        println!("Generating proof...");
+        let t = Instant::now();
+
+        let proof = client
+            .prove(&pk, stdin)
+            .run()
+            .expect("failed to generate proof");
+
+        println!("⏱  proving time: {:?}", t.elapsed());
+
+        client
+            .verify(&proof, pk.verifying_key(), None)
+            .expect("failed to verify proof");
+        println!("✓ Proof verified");
+
+        let public_values: ZkappPublicValues =
+            bincode::deserialize(proof.public_values.as_slice()).expect("decode public values");
+
+        println!("  proof_valid: {}", public_values.proof_valid);
+        assert!(public_values.proof_valid, "Pickles proof invalid");
+
+        std::fs::create_dir_all("proofs").expect("create proofs dir");
+        proof.save("proofs/proof.bin").expect("save proof");
+        println!("✓ Proof saved → proofs/proof.bin");
+    }
 }

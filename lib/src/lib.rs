@@ -1,3 +1,7 @@
+use mina_p2p_messages::v2::{
+    MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1,
+    PicklesProofProofsVerified2ReprStableV2,
+};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -5,6 +9,13 @@ use serde::{Deserialize, Serialize};
 // All field elements (Fp) are serialized as [u8; 32] to avoid
 // pulling mina-curves into the lib crate.
 // ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub struct ParsedZkappTransaction {
+    pub wire_command: MinaBaseUserCommandStableV2,
+    pub zkapp_command: MinaBaseZkappCommandTStableV1WireStableV1,
+    pub proof: PicklesProofProofsVerified2ReprStableV2,
+}
 
 /// Account precondition coming from the Solidity smart contract.
 /// Each field is Option: None means "no constraint" (wildcard).
@@ -49,14 +60,5 @@ impl Default for AccountPrecondition {
 /// `ISP1Verifier.verifyProof(programVKey, abi.encode(public_values), proof)`.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ZkappPublicValues {
-    /// Preconditions the guest enforced (echoed back for on-chain verification)
-    pub precondition: AccountPrecondition,
-    /// Merkle root of the ledger before applying the transaction
-    pub state_root_before: [u8; 32],
-    /// Merkle root of the ledger after applying the transaction
-    pub state_root_after: [u8; 32],
-    /// Hash of the zkApp transaction
-    pub tx_hash: [u8; 32],
-    /// true = Applied, false = Failed
-    pub transaction_applied: bool,
+    pub proof_valid: bool,
 }
