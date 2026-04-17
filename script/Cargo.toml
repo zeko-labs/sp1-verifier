@@ -8,27 +8,26 @@ default-run = "zkapp"
 name = "zkapp"
 path = "src/bin/main.rs"
 
-
 [dependencies]
-tokio = { version = "1", features = ["full"] }
-sp1-sdk = { version = "6.0.2", features = ["blocking", "native-gnark", "profiling"] }
-clap = { version = "4.0", features = ["derive", "env"] }
-tracing = "0.1.40"
-hex = "0.4.3"
-alloy-sol-types = { workspace = true }
-dotenv = "0.15.0"
-alloy-primitives = "=0.8.20"
+sp1-sdk         = { version = "6.0.2", features = ["blocking", "native-gnark", "profiling"] }
+tokio           = { version = "1", features = ["full"] }
+clap            = { version = "4.0", features = ["derive", "env"] }
+tracing         = "0.1.40"
+alloy-sol-types     = { workspace = true }
+alloy-primitives    = "=0.8.20"
+dotenv          = "0.15.0"
 
-mina-node-native  = { git = "https://github.com/o1-labs/mina-rust", tag = "v0.19.0" }
+mina-node-native  = { workspace = true }
 mina-p2p-messages = { workspace = true }
-mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.2.0" }
-juniper    = "0.16"
-rsexp      = "0.2.3"
-base64     = "0.22"
-anyhow     = "1.0.81"
-serde = { workspace = true }
-serde_json = "1.0.107"
-zeko_sp1_lib = { path = "../lib" }
+mina-curves       = { workspace = true }
+juniper           = { workspace = true }
+rsexp             = { workspace = true }
+base64            = { workspace = true }
+anyhow            = { workspace = true }
+hex               = { workspace = true }
+serde             = { workspace = true }
+serde_json        = { workspace = true }
+zeko_sp1_lib      = { path = "../lib" }
 
 [dev-dependencies]
 alloy-primitives = { version = "=0.8.20", features = ["sha3-keccak"] }

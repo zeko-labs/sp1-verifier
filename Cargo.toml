@@ -7,12 +7,20 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
+ark-ff = { version = "0.5.0", features = ["std"] }
 alloy-sol-types    = "1.0"
+anyhow = "1.0.81"
+base64 = "0.22"
+hex = "0.4.3"
+juniper = "0.17"
 serde              = { version = "1", features = ["derive", "rc"] }
 mina-p2p-messages  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
 mina-core          = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
-mina-curves        = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
+mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
+mina-node-native          = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
 ledger             = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1", package = "mina-tree" }
+rsexp = "0.2.3"
+serde_json = "1.0.107"
 
 [patch.crates-io]
 num-bigint       = { git = "https://github.com/openmina/num-bigint",   branch = "rebase-onstack" }
@@ -23,5 +31,5 @@ num-rational     = { git = "https://github.com/openmina/num-rational", branch = 
 [patch."https://github.com/o1-labs/mina-rust"]
 mina-p2p-messages = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
 mina-core         = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
-mina-curves       = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
 ledger            = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1", package = "mina-tree" }
+mina-node-native  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1" }
