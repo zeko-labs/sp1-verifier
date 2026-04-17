@@ -6,10 +6,10 @@ edition = "2021"
 [dependencies]
 sp1-zkvm          = "6.0.2"
 
-ledger            = { workspace = true }
-mina-core         = { workspace = true }
+ledger            = { workspace = true, default-features = false }
+mina-core         = { workspace = true, default-features = false }
 mina-curves       = { workspace = true }
-mina-p2p-messages = { workspace = true }
+mina-p2p-messages = { workspace = true, default-features = false }
 ark-ff            = { workspace = true }
 serde             = { workspace = true }
 zeko_sp1_lib      = { path = "../lib" }
