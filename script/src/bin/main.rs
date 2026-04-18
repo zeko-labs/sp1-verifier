@@ -168,6 +168,11 @@ fn main() {
 
         println!("✓ Program executed successfully");
         println!("  cycles : {}", report.total_instruction_count());
+        println!("  total gas    : {:?}", report.gas());
+
+        for (name, cycles) in &report.cycle_tracker {
+            println!("  [{}] cycles: {}", name, cycles);
+        }
 
         let public_values: ZkappPublicValues =
             bincode::deserialize(output.as_slice()).expect("decode public values");

@@ -41,14 +41,22 @@ pub fn main() {
     //    (these types don't implement CanonicalDeserialize)
     // ------------------------------------------------------------------
     let vk: VerificationKey = (&vk_wire).try_into().expect("vk wire -> runtime");
+    println!("cycle-tracker-start: make_verifier_index");
     let verifier_index = make_zkapp_verifier_index(&vk);
+    println!("cycle-tracker-end: make_verifier_index");
+
+    println!("cycle-tracker-start: make_padded_proof");
     let prover_proof = make_padded_proof_from_p2p(&proof).expect("padded proof");
+    println!("cycle-tracker-end: make_padded_proof");
 
     // ------------------------------------------------------------------
     // 4. Kimchi verify ONLY — no run_checks, no Pickles
     // ------------------------------------------------------------------
+    println!("cycle-tracker-start: group_map_setup");
     let group_map = GroupMap::<Fp>::setup();
+    println!("cycle-tracker-end: group_map_setup");
 
+    println!("cycle-tracker-start: kimchi_verify");
     let result = kimchi::verifier::verify::<
         FULL_ROUNDS,
         Pallas,
@@ -56,6 +64,7 @@ pub fn main() {
         EFrSponge,
         OpeningProof<Pallas, FULL_ROUNDS>,
     >(&group_map, &verifier_index, &prover_proof, &public_inputs);
+    println!("cycle-tracker-end: kimchi_verify");
 
     let proof_valid = result.is_ok();
     assert!(proof_valid, "Kimchi verify failed: {:?}", result.err());
