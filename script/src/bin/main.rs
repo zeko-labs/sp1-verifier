@@ -23,13 +23,11 @@ use parser::parse_graphql_zkapp_file;
 
 use ark_serialize::CanonicalSerialize;
 use ledger::{
-    proofs::{
-        verification::{
-            compute_deferred_values, get_message_for_next_step_proof,
-            get_message_for_next_wrap_proof, get_prepared_statement, VK,
-        },
-        verifiers::make_zkapp_verifier_index,
+    proofs::verification::{
+        compute_deferred_values, get_message_for_next_step_proof, get_message_for_next_wrap_proof,
+        get_prepared_statement, VK,
     },
+    proofs::verifiers::make_zkapp_verifier_index,
     scan_state::transaction_logic::{
         verifiable,
         zkapp_command::{verifiable::create, ZkAppCommand},
@@ -81,6 +79,8 @@ fn main() {
         .try_into()
         .expect("wire -> ZkAppCommand");
 
+    eprintln!("✓ parsed");
+
     // ------------------------------------------------------------------
     // 2. Derive ZkappStatement
     // ------------------------------------------------------------------
@@ -95,8 +95,10 @@ fn main() {
         other => panic!("expected ValidAssuming, got: {other:?}"),
     };
 
+    eprintln!("✓ zkapp_stmt derived");
+
     // ------------------------------------------------------------------
-    // 3. Derive public inputs (host-side, deterministic)
+    // 3. Derive public inputs on host
     // ------------------------------------------------------------------
     let proof = &parsed.proof;
     let verifier_index = make_zkapp_verifier_index(&vk);
@@ -130,7 +132,6 @@ fn main() {
         .to_public_input(vk_wrapper.index.public)
         .expect("prepared -> public inputs");
 
-    // Serialize as Vec<[u8; 32]> for the guest
     let public_inputs_bytes: Vec<[u8; 32]> = public_inputs
         .iter()
         .map(|fq| {
@@ -172,18 +173,15 @@ fn main() {
             bincode::deserialize(output.as_slice()).expect("decode public values");
 
         println!("  proof_valid: {}", public_values.proof_valid);
-        assert!(public_values.proof_valid, "Pickles proof invalid");
-        println!("✅ zkApp proof verified successfully");
+        assert!(public_values.proof_valid, "Kimchi proof invalid");
+        println!("✅ Kimchi proof verified successfully");
     } else {
         let pk = client.setup(ZKAPP_ELF).expect("failed to setup ELF");
 
         println!("Generating proof...");
         let t = Instant::now();
 
-        let proof = client
-            .prove(&pk, stdin)
-            .run()
-            .expect("failed to generate proof");
+        let proof = client.prove(&pk, stdin).run().expect("proof failed");
 
         println!("⏱  proving time: {:?}", t.elapsed());
         client
@@ -194,7 +192,7 @@ fn main() {
             bincode::deserialize(proof.public_values.as_slice()).expect("decode public values");
 
         println!("  proof_valid: {}", public_values.proof_valid);
-        assert!(public_values.proof_valid, "Pickles proof invalid");
+        assert!(public_values.proof_valid, "Kimchi proof invalid");
 
         std::fs::create_dir_all("proofs").expect("create proofs dir");
         proof.save("proofs/proof.bin").expect("save proof");

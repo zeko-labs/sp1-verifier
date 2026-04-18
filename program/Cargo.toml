@@ -14,3 +14,6 @@ mina-p2p-messages = { workspace = true, default-features = false }
 ark-ff            = { workspace = true }
 serde             = { workspace = true }
 zeko_sp1_lib      = { path = "../lib" }
+kimchi            = { workspace = true }
+mina-poseidon     = { workspace = true }
+poly-commitment   = { workspace = true }

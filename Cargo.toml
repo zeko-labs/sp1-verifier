@@ -23,6 +23,10 @@ mina-node-native          = { git = "https://github.com/zeko-labs/mina-rust", br
 ledger             = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof", package = "mina-tree", default-features = false  }
 rsexp = "0.2.3"
 serde_json = "1.0.107"
+kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
+mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
+poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
+
 
 # Redirect all mina-rust references (including transitive deps that still point
 # to the o1-labs upstream) to your zeko-labs fork on branch sp1.
