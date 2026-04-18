@@ -9,6 +9,8 @@
 //! RUST_LOG=info cargo run --release -- --prove
 //! ```
 
+//! Zeko SP1 — Kimchi-only verifier
+
 use clap::Parser;
 use sp1_sdk::{
     blocking::{ProveRequest, Prover, ProverClient},
@@ -98,7 +100,7 @@ fn main() {
     eprintln!("✓ zkapp_stmt derived");
 
     // ------------------------------------------------------------------
-    // 3. Derive public inputs on host
+    // 3. Derive public inputs
     // ------------------------------------------------------------------
     let proof = &parsed.proof;
     let verifier_index = make_zkapp_verifier_index(&vk);
@@ -109,25 +111,21 @@ fn main() {
     };
 
     let deferred_values = compute_deferred_values(proof).expect("compute_deferred_values");
-
     let msg_next_step = get_message_for_next_step_proof(
         &proof.statement.messages_for_next_step_proof,
         &vk_wrapper.commitments,
         &zkapp_stmt,
     )
     .expect("get_message_for_next_step_proof");
-
     let msg_next_wrap =
         get_message_for_next_wrap_proof(&proof.statement.proof_state.messages_for_next_wrap_proof)
             .expect("get_message_for_next_wrap_proof");
-
     let prepared = get_prepared_statement(
         &msg_next_step,
         &msg_next_wrap,
         deferred_values,
         &proof.statement.proof_state.sponge_digest_before_evaluations,
     );
-
     let public_inputs: Vec<Fq> = prepared
         .to_public_input(vk_wrapper.index.public)
         .expect("prepared -> public inputs");
@@ -148,15 +146,30 @@ fn main() {
     );
 
     // ------------------------------------------------------------------
-    // 4. Write inputs to SP1 stdin
+    // 4. Serialize VerifierIndex + SRS
+    // ------------------------------------------------------------------
+    let verifier_index_bytes =
+        bincode::serialize(&verifier_index).expect("serialize verifier_index");
+
+    let srs_bytes = bincode::serialize(&*verifier_index.srs).expect("serialize srs");
+
+    eprintln!("✓ verifier_index: {} bytes", verifier_index_bytes.len());
+    eprintln!("✓ srs:            {} bytes", srs_bytes.len());
+
+    // ------------------------------------------------------------------
+    // 5. Write inputs to SP1 stdin
     //    1. vk_wire
-    //    2. proof (raw)
+    //    2. proof
     //    3. public_inputs_bytes
+    //    4. verifier_index_bytes
+    //    5. srs_bytes
     // ------------------------------------------------------------------
     let mut stdin = SP1Stdin::new();
     stdin.write(&vk_wire);
     stdin.write(&parsed.proof);
     stdin.write(&public_inputs_bytes);
+    stdin.write(&verifier_index_bytes);
+    stdin.write(&srs_bytes);
 
     let client = ProverClient::from_env();
 
@@ -167,11 +180,10 @@ fn main() {
             .expect("execution failed");
 
         println!("✓ Program executed successfully");
-        println!("  cycles : {}", report.total_instruction_count());
-        println!("  total gas    : {:?}", report.gas());
-
+        println!("  cycles   : {}", report.total_instruction_count());
+        println!("  total gas: {:?}", report.gas());
         for (name, cycles) in &report.cycle_tracker {
-            println!("  [{}] cycles: {}", name, cycles);
+            println!("  [{name}] cycles: {cycles}");
         }
 
         let public_values: ZkappPublicValues =
