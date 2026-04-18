@@ -20,8 +20,11 @@ use mina_p2p_messages::v2::{
     MinaBaseVerificationKeyWireStableV1, PicklesProofProofsVerified2ReprStableV2,
 };
 use mina_poseidon::sponge::{DefaultFqSponge, DefaultFrSponge};
-use poly_commitment::ipa::{OpeningProof, SRS};
-use std::sync::Arc;
+use poly_commitment::{
+    hash_map_cache::HashMapCache,
+    ipa::{OpeningProof, SRS},
+};
+use std::{collections::HashMap, sync::Arc};
 use zeko_sp1_lib::ZkappPublicValues;
 
 const FULL_ROUNDS: usize = 55;
@@ -32,6 +35,7 @@ type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 // SRS with lagrange bases — precomputed once, embedded in ELF
 // Zero cost at runtime, no recalculation needed
 static SRS_BYTES: &[u8] = include_bytes!("srs_pallas.bin");
+static BASES_BYTES: &[u8] = include_bytes!("lagrange_bases.bin");
 
 pub fn main() {
     // ------------------------------------------------------------------
@@ -67,7 +71,15 @@ pub fn main() {
     // 4. Attach static SRS (lagrange bases already included)
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: load_static_srs");
-    let srs: SRS<Pallas> = bincode::deserialize(SRS_BYTES).expect("deserialize static srs");
+    let bases: Vec<poly_commitment::PolyComm<Pallas>> =
+        bincode::deserialize(BASES_BYTES).expect("deserialize bases");
+
+    let mut map = HashMap::new();
+    map.insert(1 << 15, bases);
+
+    let mut srs: SRS<Pallas> = bincode::deserialize(SRS_BYTES).expect("srs");
+    srs.lagrange_bases = HashMapCache::new_from_hashmap(map);
+
     verifier_index.srs = Arc::new(srs);
     println!("cycle-tracker-end: load_static_srs");
 
