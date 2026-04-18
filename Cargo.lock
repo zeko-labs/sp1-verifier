@@ -3565,6 +3565,7 @@ dependencies = [
  "ark-poly",
  "bincode",
  "mina-curves",
+ "mina-p2p-messages",
  "mina-tree",
  "poly-commitment",
 ]
@@ -11747,6 +11748,7 @@ dependencies = [
  "alloy-primitives 0.8.20",
  "alloy-sol-types",
  "anyhow",
+ "ark-poly",
  "ark-serialize 0.5.0",
  "base64 0.22.1",
  "bincode",

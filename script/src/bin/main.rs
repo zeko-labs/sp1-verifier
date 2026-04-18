@@ -23,6 +23,7 @@ use zeko_sp1_lib::ZkappPublicValues;
 mod parser;
 use parser::parse_graphql_zkapp_file;
 
+use ark_poly::EvaluationDomain;
 use ark_serialize::CanonicalSerialize;
 use ledger::{
     proofs::verification::{
@@ -104,6 +105,8 @@ fn main() {
     // ------------------------------------------------------------------
     let proof = &parsed.proof;
     let verifier_index = make_zkapp_verifier_index(&vk);
+    let domain_size = verifier_index.domain.size();
+    eprintln!("✓ domain_size: {}", domain_size);
     let vk_wrapper = VK {
         commitments: *vk.wrap_index.clone(),
         index: &verifier_index,

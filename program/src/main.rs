@@ -36,6 +36,7 @@ type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 // Zero cost at runtime, no recalculation needed
 static SRS_BYTES: &[u8] = include_bytes!("srs_pallas.bin");
 static BASES_BYTES: &[u8] = include_bytes!("lagrange_bases.bin");
+static DOMAIN_BYTES: &[u8] = include_bytes!("domain_size.bin");
 
 pub fn main() {
     // ------------------------------------------------------------------
@@ -71,14 +72,15 @@ pub fn main() {
     // 4. Attach static SRS (lagrange bases already included)
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: load_static_srs");
+    let domain_size: usize = bincode::deserialize(DOMAIN_BYTES).expect("domain_size");
     let bases: Vec<poly_commitment::PolyComm<Pallas>> =
-        bincode::deserialize(BASES_BYTES).expect("deserialize bases");
+        bincode::deserialize(BASES_BYTES).expect("bases");
 
-    let mut map = HashMap::new();
-    map.insert(1 << 15, bases);
+    let mut map = std::collections::HashMap::new();
+    map.insert(domain_size, bases);
 
     let mut srs: SRS<Pallas> = bincode::deserialize(SRS_BYTES).expect("srs");
-    srs.lagrange_bases = HashMapCache::new_from_hashmap(map);
+    srs.lagrange_bases = poly_commitment::hash_map_cache::HashMapCache::new_from_hashmap(map);
 
     verifier_index.srs = Arc::new(srs);
     println!("cycle-tracker-end: load_static_srs");
