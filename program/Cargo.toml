@@ -18,6 +18,7 @@ kimchi            = { workspace = true }
 mina-poseidon     = { workspace = true }
 poly-commitment   = { workspace = true }
 bincode = { workspace = true }
+rkyv = { workspace = true }
 
 [profile.release]
 lto            = "thin"

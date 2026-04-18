@@ -28,6 +28,7 @@ serde_json = "1.0.107"
 kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
 mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
 poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
+rkyv = { version = "0.8", features = ["alloc"] }
 
 
 # Redirect all mina-rust references (including transitive deps that still point

@@ -4,5 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { workspace = true }
 mina-p2p-messages = { workspace = true, default-features = false }
+rkyv = { workspace = true }
+serde = { workspace = true }

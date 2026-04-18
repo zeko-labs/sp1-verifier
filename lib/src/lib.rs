@@ -2,12 +2,38 @@ use mina_p2p_messages::v2::{
     MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1,
     PicklesProofProofsVerified2ReprStableV2,
 };
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
-// Shared types — used by both host (script) and guest (program)
-// All field elements (Fp) are serialized as [u8; 32] to avoid
-// pulling mina-curves into the lib crate.
+// rkyv structs — used only for static SRS file embedding (include_bytes!)
+// ---------------------------------------------------------------------------
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, Clone, Debug)]
+#[rkyv(derive(Debug))]
+pub struct RkyvPoint {
+    pub x: [u8; 32],
+    pub y: [u8; 32],
+    pub infinity: bool,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, Clone, Debug)]
+#[rkyv(derive(Debug))]
+pub struct RkyvPolyComm {
+    pub chunks: Vec<RkyvPoint>,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, Clone, Debug)]
+#[rkyv(derive(Debug))]
+pub struct RkyvSRS {
+    pub g: Vec<RkyvPoint>,
+    pub h: RkyvPoint,
+    pub domain_size: usize,
+    pub lagrange_bases: Vec<RkyvPolyComm>,
+}
+
+// ---------------------------------------------------------------------------
+// Host-only — parsing helpers
 // ---------------------------------------------------------------------------
 
 #[derive(Clone, Debug)]
@@ -16,6 +42,10 @@ pub struct ParsedZkappTransaction {
     pub zkapp_command: MinaBaseZkappCommandTStableV1WireStableV1,
     pub proof: PicklesProofProofsVerified2ReprStableV2,
 }
+
+// ---------------------------------------------------------------------------
+// serde — used by sp1_zkvm::io::commit and bincode for host/guest I/O
+// ---------------------------------------------------------------------------
 
 /// Account precondition coming from the Solidity smart contract.
 /// Each field is Option: None means "no constraint" (wildcard).
@@ -56,8 +86,6 @@ impl Default for AccountPrecondition {
     }
 }
 
-/// Public values committed by the guest — verifiable in Solidity via
-/// `ISP1Verifier.verifyProof(programVKey, abi.encode(public_values), proof)`.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ZkappPublicValues {
     pub proof_valid: bool,

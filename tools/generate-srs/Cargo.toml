@@ -10,3 +10,6 @@ poly-commitment = { workspace = true }
 ark-poly        = { workspace = true }
 bincode         = { workspace = true }
 mina-p2p-messages = { workspace = true }
+rkyv = { workspace = true }
+ark-serialize = { workspace = true }
+zeko_sp1_lib      = { path = "../../lib" }

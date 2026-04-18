@@ -26,6 +26,7 @@ use poly_commitment::{
 };
 use std::{collections::HashMap, sync::Arc};
 use zeko_sp1_lib::ZkappPublicValues;
+use zeko_sp1_lib::{ArchivedRkyvSRS, RkyvSRS};
 
 const FULL_ROUNDS: usize = 55;
 type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
@@ -34,9 +35,7 @@ type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 
 // SRS with lagrange bases — precomputed once, embedded in ELF
 // Zero cost at runtime, no recalculation needed
-static SRS_BYTES: &[u8] = include_bytes!("srs_pallas.bin");
-static BASES_BYTES: &[u8] = include_bytes!("lagrange_bases.bin");
-static DOMAIN_BYTES: &[u8] = include_bytes!("domain_size.bin");
+static SRS_RKYV: &[u8] = include_bytes!("srs_rkyv.bin");
 
 pub fn main() {
     // ------------------------------------------------------------------
@@ -72,15 +71,55 @@ pub fn main() {
     // 4. Attach static SRS (lagrange bases already included)
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: load_static_srs");
-    let domain_size: usize = bincode::deserialize(DOMAIN_BYTES).expect("domain_size");
-    let bases: Vec<poly_commitment::PolyComm<Pallas>> =
-        bincode::deserialize(BASES_BYTES).expect("bases");
+    let archived = unsafe { rkyv::access_unchecked::<ArchivedRkyvSRS>(SRS_RKYV) };
 
-    let mut map = std::collections::HashMap::new();
-    map.insert(domain_size, bases);
+    // Reconstruit les points g
+    let g: Vec<Pallas> = archived
+        .g
+        .iter()
+        .map(|p| {
+            let x = mina_curves::pasta::Fp::deserialize_uncompressed(&p.x[..]).unwrap();
+            let y = mina_curves::pasta::Fp::deserialize_uncompressed(&p.y[..]).unwrap();
+            Pallas::new(x, y)
+        })
+        .collect();
 
-    let mut srs: SRS<Pallas> = bincode::deserialize(SRS_BYTES).expect("srs");
-    srs.lagrange_bases = poly_commitment::hash_map_cache::HashMapCache::new_from_hashmap(map);
+    // Reconstruit h
+    let h: Pallas = {
+        let p = &archived.h;
+        let x = mina_curves::pasta::Fp::deserialize_uncompressed(&p.x[..]).unwrap();
+        let y = mina_curves::pasta::Fp::deserialize_uncompressed(&p.y[..]).unwrap();
+        Pallas::new(x, y)
+    };
+
+    // Reconstruit les lagrange bases
+    let lagrange_bases: Vec<poly_commitment::PolyComm<Pallas>> = archived
+        .lagrange_bases
+        .iter()
+        .map(|comm| poly_commitment::PolyComm {
+            chunks: comm
+                .chunks
+                .iter()
+                .map(|p| {
+                    let x = mina_curves::pasta::Fp::deserialize_uncompressed(&p.x[..]).unwrap();
+                    let y = mina_curves::pasta::Fp::deserialize_uncompressed(&p.y[..]).unwrap();
+                    Pallas::new(x, y)
+                })
+                .collect(),
+        })
+        .collect();
+
+    // Injecte les bases dans le cache
+    let domain_size = archived.domain_size.to_native();
+    let mut map = HashMap::new();
+    map.insert(domain_size.try_into().unwrap(), lagrange_bases);
+
+    // Construit le SRS complet
+    let mut srs = SRS::<Pallas> {
+        g,
+        h,
+        lagrange_bases: HashMapCache::new_from_hashmap(map),
+    };
 
     verifier_index.srs = Arc::new(srs);
     println!("cycle-tracker-end: load_static_srs");
