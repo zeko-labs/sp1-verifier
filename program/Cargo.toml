@@ -18,3 +18,8 @@ kimchi            = { workspace = true }
 mina-poseidon     = { workspace = true }
 poly-commitment   = { workspace = true }
 bincode = { workspace = true }
+
+[profile.release]
+lto            = "thin"
+codegen-units  = 1
+opt-level      = 3

@@ -100,7 +100,7 @@ fn main() {
     eprintln!("✓ zkapp_stmt derived");
 
     // ------------------------------------------------------------------
-    // 3. Derive public inputs
+    // 3. Derive public inputs on host
     // ------------------------------------------------------------------
     let proof = &parsed.proof;
     let verifier_index = make_zkapp_verifier_index(&vk);
@@ -146,30 +146,29 @@ fn main() {
     );
 
     // ------------------------------------------------------------------
-    // 4. Serialize VerifierIndex + SRS
+    // 4. Serialize VerifierIndex (SRS excluded — guest uses static one)
     // ------------------------------------------------------------------
     let verifier_index_bytes =
         bincode::serialize(&verifier_index).expect("serialize verifier_index");
-
-    let srs_bytes = bincode::serialize(&*verifier_index.srs).expect("serialize srs");
+    let public_inputs_serialized =
+        bincode::serialize(&public_inputs_bytes).expect("serialize public inputs");
 
     eprintln!("✓ verifier_index: {} bytes", verifier_index_bytes.len());
-    eprintln!("✓ srs:            {} bytes", srs_bytes.len());
+    eprintln!("✓ public_inputs:  {} bytes", public_inputs_serialized.len());
 
     // ------------------------------------------------------------------
     // 5. Write inputs to SP1 stdin
-    //    1. vk_wire
-    //    2. proof
-    //    3. public_inputs_bytes
-    //    4. verifier_index_bytes
-    //    5. srs_bytes
+    //    Use write_vec for large buffers (avoids bincode double-encoding)
+    //    1. vk_wire       → write  (needs bincode for complex type)
+    //    2. proof         → write  (needs bincode for complex type)
+    //    3. public_inputs → write_vec (raw bytes, read_vec in guest)
+    //    4. verifier_index → write_vec (raw bytes, read_vec in guest)
     // ------------------------------------------------------------------
     let mut stdin = SP1Stdin::new();
     stdin.write(&vk_wire);
     stdin.write(&parsed.proof);
-    stdin.write(&public_inputs_bytes);
-    stdin.write(&verifier_index_bytes);
-    stdin.write(&srs_bytes);
+    stdin.write_slice(&public_inputs_serialized);
+    stdin.write_slice(&verifier_index_bytes);
 
     let client = ProverClient::from_env();
 

@@ -3559,6 +3559,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "304de19db7028420975a296ab0fcbbc8e69438c4ed254a1e41e2a7f37d5f0e0a"
 
 [[package]]
+name = "generate-srs"
+version = "0.1.0"
+dependencies = [
+ "ark-poly",
+ "bincode",
+ "mina-curves",
+ "mina-tree",
+ "poly-commitment",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"

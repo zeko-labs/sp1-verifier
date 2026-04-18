@@ -9,7 +9,8 @@ use kimchi::{
 };
 use ledger::{
     proofs::{
-        prover::make_padded_proof_from_p2p, transaction::endos, transaction::InnerCurve,
+        prover::make_padded_proof_from_p2p,
+        transaction::{endos, InnerCurve},
         VerifierIndex,
     },
     VerificationKey,
@@ -28,39 +29,50 @@ type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
 type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams, FULL_ROUNDS>;
 type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 
+// SRS with lagrange bases — precomputed once, embedded in ELF
+// Zero cost at runtime, no recalculation needed
+static SRS_BYTES: &[u8] = include_bytes!("srs_pallas.bin");
+
 pub fn main() {
     // ------------------------------------------------------------------
-    // 1. Read inputs
+    // 1. Read inputs using read_vec for large buffers (zero-copy path)
     // ------------------------------------------------------------------
     let vk_wire: MinaBaseVerificationKeyWireStableV1 = sp1_zkvm::io::read();
     let proof: PicklesProofProofsVerified2ReprStableV2 = sp1_zkvm::io::read();
-    let public_inputs_bytes: Vec<[u8; 32]> = sp1_zkvm::io::read();
-    let verifier_index_bytes: Vec<u8> = sp1_zkvm::io::read();
-    let srs_bytes: Vec<u8> = sp1_zkvm::io::read();
+    let public_inputs_raw = sp1_zkvm::io::read_vec();
+    let verifier_index_raw = sp1_zkvm::io::read_vec();
 
     // ------------------------------------------------------------------
-    // 2. Deserialize public inputs
+    // 2. Deserialize public inputs — 40 x 32 bytes
     // ------------------------------------------------------------------
-    println!("cycle-tracker-start: deserialize_public_inputs");
+    println!("cycle-tracker-start: deserialize_inputs");
+    let public_inputs_bytes: Vec<[u8; 32]> =
+        bincode::deserialize(&public_inputs_raw).expect("deserialize public_inputs");
+
     let public_inputs: Vec<Fq> = public_inputs_bytes
         .iter()
         .map(|b| Fq::deserialize_uncompressed(&b[..]).expect("deserialize Fq"))
         .collect();
-    println!("cycle-tracker-end: deserialize_public_inputs");
+    println!("cycle-tracker-end: deserialize_inputs");
 
     // ------------------------------------------------------------------
-    // 3. Deserialize VerifierIndex + SRS
+    // 3. Deserialize VerifierIndex (no SRS — we use the static one)
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: deserialize_verifier_index");
     let mut verifier_index: VerifierIndex<Fq> =
-        bincode::deserialize(&verifier_index_bytes).expect("deserialize verifier_index");
-
-    let srs: SRS<Pallas> = bincode::deserialize(&srs_bytes).expect("deserialize srs");
-    verifier_index.srs = Arc::new(srs);
+        bincode::deserialize(&verifier_index_raw).expect("deserialize verifier_index");
     println!("cycle-tracker-end: deserialize_verifier_index");
 
     // ------------------------------------------------------------------
-    // 4. Reconstruct cheap skipped fields
+    // 4. Attach static SRS (lagrange bases already included)
+    // ------------------------------------------------------------------
+    println!("cycle-tracker-start: load_static_srs");
+    let srs: SRS<Pallas> = bincode::deserialize(SRS_BYTES).expect("deserialize static srs");
+    verifier_index.srs = Arc::new(srs);
+    println!("cycle-tracker-end: load_static_srs");
+
+    // ------------------------------------------------------------------
+    // 5. Reconstruct cheap skipped fields
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: reconstruct_skip_fields");
     let feature_flags = FeatureFlags::default();
@@ -72,7 +84,7 @@ pub fn main() {
     println!("cycle-tracker-end: reconstruct_skip_fields");
 
     // ------------------------------------------------------------------
-    // 5. Verify integrity — check commitments match VK
+    // 6. Verify integrity — check commitments match VK without full rebuild
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: verify_integrity");
     let vk: VerificationKey = (&vk_wire).try_into().expect("vk wire -> runtime");
@@ -92,21 +104,18 @@ pub fn main() {
     println!("cycle-tracker-end: verify_integrity");
 
     // ------------------------------------------------------------------
-    // 6. Pad proof
+    // 7. Pad proof + group map
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: make_padded_proof");
     let prover_proof = make_padded_proof_from_p2p(&proof).expect("padded proof");
     println!("cycle-tracker-end: make_padded_proof");
 
-    // ------------------------------------------------------------------
-    // 7. Group map setup
-    // ------------------------------------------------------------------
     println!("cycle-tracker-start: group_map_setup");
     let group_map = GroupMap::<Fp>::setup();
     println!("cycle-tracker-end: group_map_setup");
 
     // ------------------------------------------------------------------
-    // 8. Kimchi verify ONLY
+    // 8. Kimchi verify
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: kimchi_verify");
     let result = kimchi::verifier::verify::<
