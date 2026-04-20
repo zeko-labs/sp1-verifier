@@ -52,7 +52,3 @@ poly-commitment = { git = "https://github.com/zeko-labs/proof-systems", branch =
 
 [patch.crates-io]
 core2 = { git = "https://github.com/bbqsrc/core2", rev = "545e84bcb0f235b12e21351e0c69767958efe2a7" }
-ark-ff        = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-ff" }
-ark-ec        = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-ec" }
-ark-serialize = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-serialize" }
-ark-poly      = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-poly" }
