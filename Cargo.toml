@@ -8,33 +8,35 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-ark-ff = { version = "0.5.0", features = ["std"] }
-ark-serialize = { version = "0.5.0", features = ["std"] }
-ark-poly = { version = "0.5.0", features = ["std"] }
-alloy-sol-types    = "1.0"
-anyhow = "1.0.81"
-base64 = "0.22"
-bincode = "1.3.3"
-hex = "0.4.3"
-juniper = "0.17"
-serde              = { version = "1", features = ["derive", "rc"] }
-mina-p2p-messages  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof", default-features = false  }
-mina-core          = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof", default-features = false }
-mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
-mina-node-native          = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof" }
-ledger             = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof", package = "mina-tree", default-features = false  }
-rsexp = "0.2.3"
-serde_json = "1.0.107"
-kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
-mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
-poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.3.0" }
-rkyv = { version = "0.8", features = ["alloc"] }
+# ark
+ark-ff          = { version = "0.5.0", features = ["std"] }
+ark-serialize   = { version = "0.5.0", features = ["std"] }
+ark-poly        = { version = "0.5.0", features = ["std"] }
 
+# proof-systems — zeko fork, branch sp1
+kimchi          = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
+mina-curves     = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
+mina-hasher     = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
+mina-poseidon   = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
+mina-signer     = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
+o1-utils        = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
+poly-commitment = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
 
-# Redirect all mina-rust references (including transitive deps that still point
-# to the o1-labs upstream) to your zeko-labs fork on branch sp1.
-[patch."https://github.com/o1-labs/mina-rust"]
-mina-p2p-messages = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof" }
-mina-core         = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof" }
-ledger            = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof", package = "mina-tree" }
-mina-node-native  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-proof" }
+# mina-rust — zeko fork, branch sp1-kimchi
+mina-p2p-messages = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi", default-features = false }
+mina-core         = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi", default-features = false }
+mina-node-native  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi" }
+ledger            = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi", package = "mina-tree", default-features = false }
+
+# misc
+alloy-sol-types = "1.0"
+anyhow          = "1.0.81"
+base64          = "0.22"
+bincode         = "1.3.3"
+bytemuck        = "1"
+hex             = "0.4.3"
+juniper         = "0.17"
+rkyv            = { version = "0.8", features = ["alloc"] }
+rsexp           = "0.2.3"
+serde           = { version = "1", features = ["derive", "rc"] }
+serde_json      = "1.0.107"

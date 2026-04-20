@@ -3588,10 +3588,10 @@ dependencies = [
  "ark-poly",
  "ark-serialize 0.5.0",
  "bincode",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "mina-p2p-messages",
  "mina-tree",
- "poly-commitment",
+ "poly-commitment 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "rkyv",
  "zeko_sp1_lib",
 ]
@@ -3834,6 +3834,16 @@ dependencies = [
 name = "groupmap"
 version = "0.3.0"
 source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "rand 0.8.5",
+]
+
+[[package]]
+name = "groupmap"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -4513,6 +4523,11 @@ version = "0.3.0"
 source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
 
 [[package]]
+name = "internal-tracing"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
+
+[[package]]
 name = "ipnet"
 version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4756,18 +4771,18 @@ dependencies = [
  "ark-poly",
  "ark-serialize 0.5.0",
  "blake2",
- "groupmap",
+ "groupmap 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "hex",
- "internal-tracing",
+ "internal-tracing 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "itertools 0.12.1",
  "log",
- "mina-curves",
- "mina-poseidon",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+ "mina-poseidon 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "num-bigint 0.4.6",
  "num-integer",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "once_cell",
- "poly-commitment",
+ "poly-commitment 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "rand 0.8.5",
  "rand_core 0.6.4",
  "rayon",
@@ -4777,7 +4792,41 @@ dependencies = [
  "strum 0.26.3",
  "strum_macros 0.26.4",
  "thiserror 2.0.12",
- "turshi",
+ "turshi 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+]
+
+[[package]]
+name = "kimchi"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-serialize 0.5.0",
+ "blake2",
+ "groupmap 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "hex",
+ "internal-tracing 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "itertools 0.12.1",
+ "log",
+ "mina-curves 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "mina-poseidon 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "num-bigint 0.4.6",
+ "num-integer",
+ "o1-utils 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "once_cell",
+ "poly-commitment 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "rmp-serde",
+ "serde",
+ "serde_with",
+ "strum 0.26.3",
+ "strum_macros 0.26.4",
+ "thiserror 2.0.12",
+ "turshi 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
 ]
 
 [[package]]
@@ -5055,7 +5104,7 @@ dependencies = [
 [[package]]
 name = "mina-core"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "argon2",
  "ark-ff 0.5.0",
@@ -5072,7 +5121,7 @@ dependencies = [
  "lazy_static",
  "libp2p-identity",
  "md5",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-fuzzer",
  "mina-hasher",
  "mina-macros",
@@ -5110,9 +5159,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "mina-curves"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-std 0.5.0",
+ "num-bigint 0.4.6",
+]
+
+[[package]]
 name = "mina-fuzzer"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "lazy_static",
  "rand 0.8.5",
@@ -5128,16 +5189,16 @@ source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346
 dependencies = [
  "ark-ff 0.5.0",
  "bitvec",
- "mina-curves",
- "mina-poseidon",
- "o1-utils",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+ "mina-poseidon 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "serde",
 ]
 
 [[package]]
 name = "mina-macros"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "proc-macro2 1.0.106",
  "quote 1.0.40",
@@ -5147,7 +5208,7 @@ dependencies = [
 [[package]]
 name = "mina-node"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "anyhow",
  "ark-ff 0.5.0",
@@ -5160,7 +5221,7 @@ dependencies = [
  "lazy_static",
  "linkme",
  "mina-core",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-hasher",
  "mina-node-account",
  "mina-p2p",
@@ -5194,7 +5255,7 @@ dependencies = [
 [[package]]
 name = "mina-node-account"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "anyhow",
  "bs58 0.4.0",
@@ -5214,7 +5275,7 @@ dependencies = [
 [[package]]
 name = "mina-node-common"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "anyhow",
  "ark-ff 0.5.0",
@@ -5257,7 +5318,7 @@ dependencies = [
 [[package]]
 name = "mina-node-native"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "anyhow",
  "axum 0.8.9",
@@ -5280,7 +5341,7 @@ dependencies = [
  "mina-tree",
  "mina-vrf",
  "nix 0.27.1",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "rand 0.8.5",
  "rayon",
  "redux",
@@ -5304,7 +5365,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -5373,7 +5434,7 @@ dependencies = [
 [[package]]
 name = "mina-p2p-messages"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
@@ -5387,12 +5448,12 @@ dependencies = [
  "graphannis-malloc_size_of_derive",
  "hex",
  "lazy_static",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-hasher",
  "mina-macros",
  "mina-signer",
  "num-bigint 0.4.6",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "poseidon",
  "rsexp",
  "rsexp-derive",
@@ -5416,8 +5477,26 @@ dependencies = [
  "ark-ff 0.5.0",
  "ark-poly",
  "ark-serialize 0.5.0",
- "mina-curves",
- "o1-utils",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+ "once_cell",
+ "rand 0.8.5",
+ "rayon",
+ "serde",
+ "serde_with",
+]
+
+[[package]]
+name = "mina-poseidon"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-serialize 0.5.0",
+ "mina-curves 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "o1-utils 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "once_cell",
  "rand 0.8.5",
  "rayon",
@@ -5436,10 +5515,10 @@ dependencies = [
  "blake2",
  "bs58 0.5.1",
  "hex",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-hasher",
  "num-bigint 0.4.6",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "rand 0.8.5",
  "serde",
  "sha2 0.10.9",
@@ -5449,26 +5528,26 @@ dependencies = [
 [[package]]
 name = "mina-snark"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
  "ark-poly",
  "derive_more 0.99.20",
  "hex",
- "kimchi",
+ "kimchi 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "linkme",
  "mina-core",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-hasher",
  "mina-p2p-messages",
- "mina-poseidon",
+ "mina-poseidon 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-signer",
  "mina-tree",
  "num-bigint 0.4.6",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "once_cell",
- "poly-commitment",
+ "poly-commitment 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "poseidon",
  "rand 0.8.5",
  "rayon",
@@ -5483,7 +5562,7 @@ dependencies = [
 [[package]]
 name = "mina-tree"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -5502,20 +5581,20 @@ dependencies = [
  "hex",
  "itertools 0.12.1",
  "juniper",
- "kimchi",
+ "kimchi 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "lazy_static",
  "libc",
  "mina-core",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-hasher",
  "mina-macros",
  "mina-p2p-messages",
- "mina-poseidon",
+ "mina-poseidon 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-signer",
  "num-bigint 0.4.6",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "once_cell",
- "poly-commitment",
+ "poly-commitment 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "poseidon",
  "postcard",
  "rand 0.8.5",
@@ -5538,7 +5617,7 @@ dependencies = [
 [[package]]
 name = "mina-vrf"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -5547,14 +5626,14 @@ dependencies = [
  "bs58 0.4.0",
  "hex",
  "itertools 0.12.1",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "mina-hasher",
  "mina-node-account",
  "mina-p2p-messages",
  "mina-signer",
  "mina-tree",
  "num",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "poseidon",
  "rand 0.8.5",
  "redux",
@@ -6005,6 +6084,31 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 name = "o1-utils"
 version = "0.3.0"
 source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346344ba80a88137b100237070dc"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-serialize 0.5.0",
+ "bcs",
+ "hex",
+ "num-bigint 0.4.6",
+ "num-integer",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "rmp-serde",
+ "rustversion",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "sha2 0.10.9",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "o1-utils"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -6802,13 +6906,13 @@ dependencies = [
  "ark-poly",
  "ark-serialize 0.5.0",
  "blake2",
- "groupmap",
+ "groupmap 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "hex",
  "itertools 0.12.1",
- "mina-curves",
- "mina-poseidon",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+ "mina-poseidon 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "num-bigint 0.4.6",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "once_cell",
  "rand 0.8.5",
  "rand_core 0.6.4",
@@ -6816,6 +6920,36 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_with",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "poly-commitment"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
+dependencies = [
+ "ark-ec",
+ "ark-ff 0.5.0",
+ "ark-poly",
+ "ark-serialize 0.5.0",
+ "blake2",
+ "bytemuck",
+ "crypto-bigint 0.5.5",
+ "groupmap 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "hex",
+ "itertools 0.12.1",
+ "mina-curves 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "mina-poseidon 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "num-bigint 0.4.6",
+ "o1-utils 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
+ "once_cell",
+ "rand 0.8.5",
+ "rand_core 0.6.4",
+ "rayon",
+ "rmp-serde",
+ "serde",
+ "serde_with",
+ "sp1-lib",
  "thiserror 2.0.12",
 ]
 
@@ -6851,12 +6985,12 @@ checksum = "350e9b48cbc6b0e028b0473b114454c6316e57336ee184ceab6e53f72c178b3e"
 [[package]]
 name = "poseidon"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
- "mina-curves",
- "o1-utils",
+ "mina-curves 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
  "once_cell",
  "serde",
 ]
@@ -7450,7 +7584,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "enum_dispatch",
  "linkme",
@@ -8063,7 +8197,7 @@ checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
 [[package]]
 name = "salsa-simple"
 version = "0.19.0"
-source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-proof#42bfae5eab94e315427d57fd30c1eb2004b7785b"
+source = "git+https://github.com/zeko-labs/mina-rust?branch=sp1-kimchi#b64c358f63f546a5d583ce4ac32de5afe40576c2"
 dependencies = [
  "generic-array 0.14.7",
  "hex",
@@ -9293,6 +9427,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "517e820776910468611149dda66791bdb700c1b7d68b96f0ea2e604f00ad8771"
 dependencies = [
  "bincode",
+ "elliptic-curve 0.13.8",
  "serde",
  "sp1-primitives",
 ]
@@ -10459,7 +10594,17 @@ source = "git+https://github.com/o1-labs/proof-systems?tag=0.3.0#a73ca6ed580a346
 dependencies = [
  "ark-ff 0.5.0",
  "hex",
- "o1-utils",
+ "o1-utils 0.3.0 (git+https://github.com/o1-labs/proof-systems?tag=0.3.0)",
+]
+
+[[package]]
+name = "turshi"
+version = "0.3.0"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#22d4ab7e34cc23a43d96e599902da63a016453a2"
+dependencies = [
+ "ark-ff 0.5.0",
+ "hex",
+ "o1-utils 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
 ]
 
 [[package]]
@@ -11856,13 +12001,13 @@ dependencies = [
  "ark-ff 0.5.0",
  "ark-serialize 0.5.0",
  "bincode",
- "kimchi",
+ "kimchi 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "mina-core",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "mina-p2p-messages",
- "mina-poseidon",
+ "mina-poseidon 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "mina-tree",
- "poly-commitment",
+ "poly-commitment 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "rkyv",
  "serde",
  "sp1-zkvm",
@@ -11885,7 +12030,7 @@ dependencies = [
  "dotenv",
  "hex",
  "juniper",
- "mina-curves",
+ "mina-curves 0.3.0 (git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm)",
  "mina-node-native",
  "mina-p2p-messages",
  "mina-tree",
