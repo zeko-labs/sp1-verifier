@@ -24,3 +24,7 @@ rkyv = { workspace = true }
 lto            = "thin"
 codegen-units  = 1
 opt-level      = 3
+
+[target.'cfg(target_os = "zkvm")'.dependencies]
+sp1-lib  = "6.0.2"
+bytemuck = "1"

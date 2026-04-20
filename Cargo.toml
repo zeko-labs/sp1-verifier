@@ -22,11 +22,11 @@ mina-signer     = { git = "https://github.com/zeko-labs/proof-systems", branch =
 o1-utils        = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
 poly-commitment = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
 
-# mina-rust — zeko fork, branch sp1-kimchi
-mina-p2p-messages = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi", default-features = false }
-mina-core         = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi", default-features = false }
-mina-node-native  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi" }
-ledger            = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-kimchi", package = "mina-tree", default-features = false }
+# mina-rust — zeko fork, branch sp1-msm
+mina-p2p-messages = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-msm", default-features = false }
+mina-core         = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-msm", default-features = false }
+mina-node-native  = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-msm" }
+ledger            = { git = "https://github.com/zeko-labs/mina-rust", branch = "sp1-msm", package = "mina-tree", default-features = false }
 
 # misc
 alloy-sol-types = "1.0"
@@ -52,3 +52,7 @@ poly-commitment = { git = "https://github.com/zeko-labs/proof-systems", branch =
 
 [patch.crates-io]
 core2 = { git = "https://github.com/bbqsrc/core2", rev = "545e84bcb0f235b12e21351e0c69767958efe2a7" }
+ark-ff        = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-ff" }
+ark-ec        = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-ec" }
+ark-serialize = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-serialize" }
+ark-poly      = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm", package = "ark-poly" }
