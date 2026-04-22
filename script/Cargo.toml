@@ -19,6 +19,8 @@ dotenv          = "0.15.0"
 bincode = { workspace = true }
 ark-serialize = { workspace = true }
 ark-poly = { workspace = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
 
 mina-node-native  = { workspace = true }
 mina-p2p-messages = { workspace = true }
@@ -39,3 +41,6 @@ criterion = "0.5"
 
 [build-dependencies]
 sp1-build = "6.0.2"
+
+[features]
+debug-log = ["ark-ec/debug-log","ark-ff/debug-log"]
