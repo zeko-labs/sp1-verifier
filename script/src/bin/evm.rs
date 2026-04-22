@@ -21,7 +21,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-pub const FIBONACCI_ELF: Elf = include_elf!("fibonacci-program");
+pub const FIBONACCI_ELF: Elf = include_elf!("zkapp-program");
 
 /// The arguments for the EVM command.
 #[derive(Parser, Debug)]
