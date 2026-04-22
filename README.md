@@ -87,3 +87,14 @@ command:
 ```sh
 SP1_PROVER=network NETWORK_PRIVATE_KEY=... cargo run --release --bin evm
 ```
+
+
+### Update ark custom version
+
+```
+cargo update -p ark-ff 
+cargo update -p ark-ec 
+cargo update -p ark-poly 
+cargo update -p ark-serialize 
+RUST_LOG=info cargo run --release -- --execute
+```
