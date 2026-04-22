@@ -173,9 +173,8 @@ fn main() {
     stdin.write_slice(&public_inputs_serialized);
     stdin.write_slice(&verifier_index_bytes);
 
-    let client = ProverClient::from_env();
-
     if args.execute {
+        let client = ProverClient::from_env();
         let (output, report) = client
             .execute(ZKAPP_ELF, stdin)
             .run()
@@ -195,6 +194,7 @@ fn main() {
         assert!(public_values.proof_valid, "Kimchi proof invalid");
         println!("✅ Kimchi proof verified successfully");
     } else {
+        let client = ProverClient::builder().cuda().build();
         let pk = client.setup(ZKAPP_ELF).expect("failed to setup ELF");
 
         println!("Generating proof...");
