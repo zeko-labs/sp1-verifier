@@ -191,7 +191,7 @@ fn main() {
     // ------------------------------------------------------------------
     // 6. Setup and prove with an EVM-compatible proof system
     // ------------------------------------------------------------------
-    let client = ProverClient::from_env();
+    let client = ProverClient::builder().cuda().build();
 
     let t_setup = Instant::now();
     let pk = client.setup(ZKAPP_ELF).expect("failed to setup ELF");
