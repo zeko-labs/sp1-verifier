@@ -366,7 +366,7 @@ dependencies = [
 [[package]]
 name = "ark-ec"
 version = "0.5.0"
-source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#d2c8785c24615cab2dce84b662181fc829cd1426"
+source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#48d0be434ed8effc8e9f1cb9cfd946c8cbc9376d"
 dependencies = [
  "ahash",
  "ark-ff 0.5.0",
@@ -426,7 +426,7 @@ dependencies = [
 [[package]]
 name = "ark-ff"
 version = "0.5.0"
-source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#d2c8785c24615cab2dce84b662181fc829cd1426"
+source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#48d0be434ed8effc8e9f1cb9cfd946c8cbc9376d"
 dependencies = [
  "ark-ff-asm 0.5.0",
  "ark-ff-macros 0.5.0",
@@ -467,7 +467,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-asm"
 version = "0.5.0"
-source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#d2c8785c24615cab2dce84b662181fc829cd1426"
+source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#48d0be434ed8effc8e9f1cb9cfd946c8cbc9376d"
 dependencies = [
  "quote 1.0.45",
  "syn 2.0.117",
@@ -501,7 +501,7 @@ dependencies = [
 [[package]]
 name = "ark-ff-macros"
 version = "0.5.0"
-source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#d2c8785c24615cab2dce84b662181fc829cd1426"
+source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#48d0be434ed8effc8e9f1cb9cfd946c8cbc9376d"
 dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
@@ -513,7 +513,7 @@ dependencies = [
 [[package]]
 name = "ark-poly"
 version = "0.5.0"
-source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#d2c8785c24615cab2dce84b662181fc829cd1426"
+source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#48d0be434ed8effc8e9f1cb9cfd946c8cbc9376d"
 dependencies = [
  "ahash",
  "ark-ff 0.5.0",
@@ -549,7 +549,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize"
 version = "0.5.0"
-source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#d2c8785c24615cab2dce84b662181fc829cd1426"
+source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#48d0be434ed8effc8e9f1cb9cfd946c8cbc9376d"
 dependencies = [
  "ark-serialize-derive",
  "ark-std 0.5.0",
@@ -562,7 +562,7 @@ dependencies = [
 [[package]]
 name = "ark-serialize-derive"
 version = "0.5.0"
-source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#d2c8785c24615cab2dce84b662181fc829cd1426"
+source = "git+https://github.com/zeko-labs/algebra?branch=sp1-msm#48d0be434ed8effc8e9f1cb9cfd946c8cbc9376d"
 dependencies = [
  "proc-macro2 1.0.106",
  "quote 1.0.45",
@@ -1232,7 +1232,7 @@ dependencies = [
  "hyper-util",
  "pin-project-lite",
  "rustls 0.21.12",
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
@@ -4280,7 +4280,7 @@ dependencies = [
  "http 1.4.0",
  "hyper 1.9.0",
  "hyper-util",
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "rustls-native-certs",
  "tokio",
  "tokio-rustls 0.26.4",
@@ -7322,7 +7322,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash 2.1.2",
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "socket2 0.6.3",
  "thiserror 2.0.18",
  "tokio",
@@ -7342,7 +7342,7 @@ dependencies = [
  "rand 0.9.4",
  "ring",
  "rustc-hash 2.1.2",
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "rustls-pki-types",
  "slab",
  "thiserror 2.0.18",
@@ -7688,7 +7688,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn",
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -7761,13 +7761,13 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.8.15"
+version = "0.8.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a30e631b7f4a03dee9056b8ef6982e8ba371dd5bedb74d3ec86df4499132c70"
+checksum = "73389e0c99e664f919275ab5b5b0471391fe9a8de61e1dff9b1eaf56a90f16e3"
 dependencies = [
  "bytecheck",
  "bytes",
- "hashbrown 0.16.1",
+ "hashbrown 0.17.0",
  "indexmap 2.14.0",
  "munge",
  "ptr_meta",
@@ -7780,9 +7780,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv_derive"
-version = "0.8.15"
+version = "0.8.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8100bb34c0a1d0f907143db3149e6b4eea3c33b9ee8b189720168e818303986f"
+checksum = "5d2ed0b54125315fb36bd021e82d314d1c126548f871634b483f46b31d13cac6"
 dependencies = [
  "proc-macro2 1.0.106",
  "quote 1.0.45",
@@ -8054,9 +8054,9 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.38"
+version = "0.23.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69f9466fb2c14ea04357e91413efb882e2a6d4a406e625449bc0a5d360d53a21"
+checksum = "7c2c118cb077cca2822033836dfb1b975355dfb784b5e8da48f7b6c5db74e60e"
 dependencies = [
  "aws-lc-rs",
  "log",
@@ -10253,7 +10253,7 @@ version = "0.26.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "tokio",
 ]
 
@@ -11117,7 +11117,7 @@ dependencies = [
  "ring",
  "rtcp",
  "rtp",
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "sdp",
  "serde",
  "serde_json",
@@ -11177,7 +11177,7 @@ dependencies = [
  "rand_core 0.6.4",
  "rcgen",
  "ring",
- "rustls 0.23.38",
+ "rustls 0.23.39",
  "sec1 0.7.3",
  "serde",
  "sha1",
