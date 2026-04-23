@@ -12,6 +12,7 @@
 
 use clap::{Parser, ValueEnum};
 use serde::{Deserialize, Serialize};
+use sp1_sdk::blocking::ProveRequest;
 use sp1_sdk::{
     blocking::{Prover, ProverClient},
     include_elf, Elf, HashableKey, SP1ProofWithPublicValues, SP1Stdin, SP1VerifyingKey,
