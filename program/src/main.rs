@@ -191,11 +191,9 @@ pub fn main() {
     let hash_input_32: [Fp; 32] = from_fn(|i| Fp::from((i as u64) + 1));
 
     println!("cycle-tracker-start: poseidon_hash_32");
-    let hash_out = black_box(poseidon_hash(&hash_input_32));
+    let hash_out = poseidon_hash(&hash_input_32);
+    println!("poseidon_32 output: {:?}", hash_out);
     println!("cycle-tracker-end: poseidon_hash_32");
-
-    // Prevent the optimizer from removing the computation.
-    black_box(hash_out);
 
     sp1_zkvm::io::commit(&ZkappPublicValues { proof_valid });
 }
