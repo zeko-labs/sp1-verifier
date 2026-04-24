@@ -1921,9 +1921,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.60"
+version = "1.2.61"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43c5703da9466b66a946814e1adf53ea2c90f10063b86290cc9eb67ce3478a20"
+checksum = "d16d90359e986641506914ba71350897565610e87ce0ad9e6f28569db3dd5c6d"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -2703,15 +2703,15 @@ dependencies = [
 
 [[package]]
 name = "data-encoding"
-version = "2.10.0"
+version = "2.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a1e2f27636f116493b8b860f5546edb47c8d8f8ea73e1d2a20be88e28d1fea"
+checksum = "a4ae5f15dda3c708c0ade84bfee31ccab44a3da4f88015ed22f63732abe300c8"
 
 [[package]]
 name = "data-encoding-macro"
-version = "0.1.19"
+version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8142a83c17aa9461d637e649271eae18bf2edd00e91f2e105df36c3c16355bdb"
+checksum = "3259c913752a86488b501ed8680446a5ed2d5aeac6e596cb23ba3800768ea32c"
 dependencies = [
  "data-encoding",
  "data-encoding-macro-internal",
@@ -2719,9 +2719,9 @@ dependencies = [
 
 [[package]]
 name = "data-encoding-macro-internal"
-version = "0.1.17"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ab67060fc6b8ef687992d439ca0fa36e7ed17e9a0b16b25b601e8757df720de"
+checksum = "ccc2776f0c61eca1ca32528f85548abd1a4be8fb53d1b21c013e4f18da1e7090"
 dependencies = [
  "data-encoding",
  "syn 2.0.117",
@@ -3924,7 +3924,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -4584,7 +4584,7 @@ dependencies = [
 [[package]]
 name = "internal-tracing"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 
 [[package]]
 name = "ipnet"
@@ -4835,7 +4835,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -5210,7 +5210,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -5234,7 +5234,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ff 0.5.0",
  "bitvec",
@@ -5520,12 +5520,13 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
  "ark-poly",
  "ark-serialize 0.5.0",
+ "bytemuck",
  "mina-curves",
  "o1-utils",
  "once_cell",
@@ -5533,12 +5534,13 @@ dependencies = [
  "rayon",
  "serde",
  "serde_with",
+ "sp1-lib",
 ]
 
 [[package]]
 name = "mina-signer"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -6125,7 +6127,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 [[package]]
 name = "o1-utils"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -6910,7 +6912,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -8091,9 +8093,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.14.0"
+version = "1.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be040f8b0a225e40375822a563fa9524378b9d63112f53e19ffff34df5d33fdd"
+checksum = "30a7197ae7eb376e574fe940d068c30fe0462554a3ddbe4eca7838e049c937a9"
 dependencies = [
  "web-time",
  "zeroize",
@@ -10593,7 +10595,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#a88046bf927aec95157c74d7eee9edcad36ca815"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#57365c331304082a9a6d39fd95f60eb6ac67f3d6"
 dependencies = [
  "ark-ff 0.5.0",
  "hex",

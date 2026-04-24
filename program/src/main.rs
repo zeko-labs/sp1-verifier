@@ -185,7 +185,7 @@ pub fn main() {
     assert!(proof_valid, "Kimchi verify failed: {:?}", result.err());
 
     // ------------------------------------------------------------------
-    // 9. Benchmark Poseidon hash on exactly 32 Fp elements
+    //  Benchmark Poseidon hash on exactly 32 Fp elements
     //    The input preparation is outside the tracker.
     // ------------------------------------------------------------------
     let hash_input_32: [Fp; 32] = from_fn(|i| Fp::from((i as u64) + 1));
