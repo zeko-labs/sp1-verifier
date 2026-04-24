@@ -194,7 +194,7 @@ fn main() {
         assert!(public_values.proof_valid, "Kimchi proof invalid");
         println!("✅ Kimchi proof verified successfully");
     } else {
-        let client = ProverClient::builder().cuda().build();
+        let client = ProverClient::builder().cpu().build();
         let pk = client.setup(ZKAPP_ELF).expect("failed to setup ELF");
 
         println!("Generating proof...");

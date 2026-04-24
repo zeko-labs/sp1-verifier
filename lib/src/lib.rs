@@ -1,6 +1,13 @@
+use mina_curves::pasta::{Fp, Fq, Pallas};
 use mina_p2p_messages::v2::{
     MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1,
     PicklesProofProofsVerified2ReprStableV2,
+};
+use mina_poseidon::pasta::fp_kimchi;
+use mina_poseidon::{
+    constants::PlonkSpongeConstantsKimchi,
+    pasta::FULL_ROUNDS,
+    poseidon::{ArithmeticSponge as Poseidon, Sponge},
 };
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
@@ -89,4 +96,11 @@ impl Default for AccountPrecondition {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct ZkappPublicValues {
     pub proof_valid: bool,
+}
+
+pub fn poseidon_hash(input: &[Fp]) -> Fp {
+    let mut hash =
+        Poseidon::<Fp, PlonkSpongeConstantsKimchi, FULL_ROUNDS>::new(fp_kimchi::static_params());
+    hash.absorb(input);
+    hash.squeeze()
 }
