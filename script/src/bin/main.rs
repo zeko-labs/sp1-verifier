@@ -9,7 +9,7 @@
 //! RUST_LOG=info cargo run --release -- --prove
 //! ```
 
-//! Zeko SP1 — Kimchi-only verifier
+//! Zeko SP1 — zkApp proof verifier
 
 use clap::Parser;
 use sp1_sdk::{
@@ -107,6 +107,7 @@ fn main() {
     let verifier_index = make_zkapp_verifier_index(&vk);
     let domain_size = verifier_index.domain.size();
     eprintln!("✓ domain_size: {}", domain_size);
+
     let vk_wrapper = VK {
         commitments: *vk.wrap_index.clone(),
         index: &verifier_index,
@@ -133,44 +134,37 @@ fn main() {
         .to_public_input(vk_wrapper.index.public)
         .expect("prepared -> public inputs");
 
-    let public_inputs_bytes: Vec<[u8; 32]> = public_inputs
-        .iter()
-        .map(|fq| {
-            let mut buf = [0u8; 32];
-            fq.serialize_uncompressed(&mut buf[..])
-                .expect("serialize Fq");
-            buf
-        })
-        .collect();
+    let mut public_inputs_raw = Vec::with_capacity(public_inputs.len() * 32);
+    for fq in &public_inputs {
+        let mut buf = [0u8; 32];
+        fq.serialize_uncompressed(&mut buf[..])
+            .expect("serialize Fq");
+        public_inputs_raw.extend_from_slice(&buf);
+    }
 
-    eprintln!(
-        "✓ public inputs derived ({} elements)",
-        public_inputs_bytes.len()
-    );
+    eprintln!("✓ public inputs derived ({} elements)", public_inputs.len());
 
     // ------------------------------------------------------------------
     // 4. Serialize VerifierIndex (SRS excluded — guest uses static one)
+    //    Keep bincode here unless VerifierIndex becomes rkyv-compatible.
     // ------------------------------------------------------------------
     let verifier_index_bytes =
         bincode::serialize(&verifier_index).expect("serialize verifier_index");
-    let public_inputs_serialized =
-        bincode::serialize(&public_inputs_bytes).expect("serialize public inputs");
 
     eprintln!("✓ verifier_index: {} bytes", verifier_index_bytes.len());
-    eprintln!("✓ public_inputs:  {} bytes", public_inputs_serialized.len());
+    eprintln!("✓ public_inputs:  {} bytes", public_inputs_raw.len());
 
     // ------------------------------------------------------------------
     // 5. Write inputs to SP1 stdin
-    //    Use write_vec for large buffers (avoids bincode double-encoding)
-    //    1. vk_wire       → write  (needs bincode for complex type)
-    //    2. proof         → write  (needs bincode for complex type)
-    //    3. public_inputs → write_vec (raw bytes, read_vec in guest)
-    //    4. verifier_index → write_vec (raw bytes, read_vec in guest)
+    //    1. vk_wire        -> write
+    //    2. proof          -> write
+    //    3. public_inputs  -> raw bytes
+    //    4. verifier_index -> bincode bytes
     // ------------------------------------------------------------------
     let mut stdin = SP1Stdin::new();
     stdin.write(&vk_wire);
     stdin.write(&parsed.proof);
-    stdin.write_slice(&public_inputs_serialized);
+    stdin.write_slice(&public_inputs_raw);
     stdin.write_slice(&verifier_index_bytes);
 
     if args.execute {

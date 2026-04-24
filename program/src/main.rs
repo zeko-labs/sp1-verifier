@@ -2,8 +2,7 @@
 sp1_zkvm::entrypoint!(main);
 
 use ark_serialize::CanonicalDeserialize;
-use bincode;
-use core::{array::from_fn, hint::black_box};
+use core::array::from_fn;
 use kimchi::{
     circuits::constraints::FeatureFlags, groupmap::GroupMap, linearization::expr_linearization,
     mina_curves::pasta::PallasParameters,
@@ -26,8 +25,7 @@ use poly_commitment::{
     ipa::{OpeningProof, SRS},
 };
 use std::{collections::HashMap, sync::Arc};
-use zeko_sp1_lib::ZkappPublicValues;
-use zeko_sp1_lib::{poseidon_hash, ArchivedRkyvSRS, RkyvSRS};
+use zeko_sp1_lib::{poseidon_hash, ArchivedRkyvSRS, ZkappPublicValues};
 
 const FULL_ROUNDS: usize = 55;
 type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
@@ -35,12 +33,11 @@ type EFqSponge = DefaultFqSponge<PallasParameters, SpongeParams, FULL_ROUNDS>;
 type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 
 // SRS with lagrange bases — precomputed once, embedded in ELF
-// Zero cost at runtime, no recalculation needed
 static SRS_RKYV: &[u8] = include_bytes!("srs_rkyv.bin");
 
 pub fn main() {
     // ------------------------------------------------------------------
-    // 1. Read inputs using read_vec for large buffers (zero-copy path)
+    // 1. Read inputs
     // ------------------------------------------------------------------
     let vk_wire: MinaBaseVerificationKeyWireStableV1 = sp1_zkvm::io::read();
     let proof: PicklesProofProofsVerified2ReprStableV2 = sp1_zkvm::io::read();
@@ -48,20 +45,22 @@ pub fn main() {
     let verifier_index_raw = sp1_zkvm::io::read_vec();
 
     // ------------------------------------------------------------------
-    // 2. Deserialize public inputs — 40 x 32 bytes
+    // 2. Deserialize public inputs from raw 32-byte chunks
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: deserialize_inputs");
-    let public_inputs_bytes: Vec<[u8; 32]> =
-        bincode::deserialize(&public_inputs_raw).expect("deserialize public_inputs");
+    assert!(
+        public_inputs_raw.len() % 32 == 0,
+        "public_inputs_raw length must be a multiple of 32"
+    );
 
-    let public_inputs: Vec<Fq> = public_inputs_bytes
-        .iter()
-        .map(|b| Fq::deserialize_uncompressed(&b[..]).expect("deserialize Fq"))
+    let public_inputs: Vec<Fq> = public_inputs_raw
+        .chunks_exact(32)
+        .map(|chunk| Fq::deserialize_uncompressed(chunk).expect("deserialize Fq"))
         .collect();
     println!("cycle-tracker-end: deserialize_inputs");
 
     // ------------------------------------------------------------------
-    // 3. Deserialize VerifierIndex (no SRS — we use the static one)
+    // 3. Deserialize VerifierIndex (still bincode)
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: deserialize_verifier_index");
     let mut verifier_index: VerifierIndex<Fq> =
@@ -74,7 +73,6 @@ pub fn main() {
     println!("cycle-tracker-start: load_static_srs");
     let archived = unsafe { rkyv::access_unchecked::<ArchivedRkyvSRS>(SRS_RKYV) };
 
-    // Reconstruit les points g
     let g: Vec<Pallas> = archived
         .g
         .iter()
@@ -85,7 +83,6 @@ pub fn main() {
         })
         .collect();
 
-    // Reconstruit h
     let h: Pallas = {
         let p = &archived.h;
         let x = mina_curves::pasta::Fp::deserialize_uncompressed(&p.x[..]).unwrap();
@@ -93,7 +90,6 @@ pub fn main() {
         Pallas::new(x, y)
     };
 
-    // Reconstruit les lagrange bases
     let lagrange_bases: Vec<poly_commitment::PolyComm<Pallas>> = archived
         .lagrange_bases
         .iter()
@@ -110,13 +106,11 @@ pub fn main() {
         })
         .collect();
 
-    // Injecte les bases dans le cache
     let domain_size = archived.domain_size.to_native();
     let mut map = HashMap::new();
     map.insert(domain_size.try_into().unwrap(), lagrange_bases);
 
-    // Construit le SRS complet
-    let mut srs = SRS::<Pallas> {
+    let srs = SRS::<Pallas> {
         g,
         h,
         lagrange_bases: HashMapCache::new_from_hashmap(map),
@@ -138,7 +132,7 @@ pub fn main() {
     println!("cycle-tracker-end: reconstruct_skip_fields");
 
     // ------------------------------------------------------------------
-    // 6. Verify integrity — check commitments match VK without full rebuild
+    // 6. Verify integrity
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: verify_integrity");
     let vk: VerificationKey = (&vk_wire).try_into().expect("vk wire -> runtime");
@@ -185,8 +179,7 @@ pub fn main() {
     assert!(proof_valid, "Kimchi verify failed: {:?}", result.err());
 
     // ------------------------------------------------------------------
-    //  Benchmark Poseidon hash on exactly 32 Fp elements
-    //    The input preparation is outside the tracker.
+    // 9. Benchmark Poseidon hash on exactly 32 Fp elements
     // ------------------------------------------------------------------
     let hash_input_32: [Fp; 32] = from_fn(|i| Fp::from((i as u64) + 1));
 
