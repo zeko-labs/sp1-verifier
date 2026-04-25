@@ -72,36 +72,28 @@ pub fn main() {
     println!("cycle-tracker-start: load_static_srs");
     let archived = unsafe { rkyv::access_unchecked::<ArchivedRkyvSRS>(SRS_RKYV) };
 
-    let g: Vec<Pallas> = archived
-        .g
-        .iter()
-        .map(|p| {
-            let x = mina_curves::pasta::Fp::deserialize_uncompressed(&p.x[..]).unwrap();
-            let y = mina_curves::pasta::Fp::deserialize_uncompressed(&p.y[..]).unwrap();
-            Pallas::new(x, y)
-        })
-        .collect();
+    #[inline(always)]
+    fn bytes_to_fp(bytes: &[u8; 32]) -> mina_curves::pasta::Fp {
+        mina_curves::pasta::Fp::deserialize_uncompressed(&bytes[..]).unwrap()
+    }
 
-    let h: Pallas = {
-        let p = &archived.h;
-        let x = mina_curves::pasta::Fp::deserialize_uncompressed(&p.x[..]).unwrap();
-        let y = mina_curves::pasta::Fp::deserialize_uncompressed(&p.y[..]).unwrap();
-        Pallas::new(x, y)
-    };
+    #[inline(always)]
+    fn rkyv_to_pallas(p: &zeko_sp1_lib::ArchivedRkyvPoint) -> Pallas {
+        if p.infinity {
+            return Pallas::default();
+        }
+        Pallas::new_unchecked(bytes_to_fp(&p.x), bytes_to_fp(&p.y))
+    }
+
+    let g: Vec<Pallas> = archived.g.iter().map(|p| rkyv_to_pallas(p)).collect();
+
+    let h: Pallas = rkyv_to_pallas(&archived.h);
 
     let lagrange_bases: Vec<poly_commitment::PolyComm<Pallas>> = archived
         .lagrange_bases
         .iter()
         .map(|comm| poly_commitment::PolyComm {
-            chunks: comm
-                .chunks
-                .iter()
-                .map(|p| {
-                    let x = mina_curves::pasta::Fp::deserialize_uncompressed(&p.x[..]).unwrap();
-                    let y = mina_curves::pasta::Fp::deserialize_uncompressed(&p.y[..]).unwrap();
-                    Pallas::new(x, y)
-                })
-                .collect(),
+            chunks: comm.chunks.iter().map(|p| rkyv_to_pallas(p)).collect(),
         })
         .collect();
 
