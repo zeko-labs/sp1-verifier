@@ -1,7 +1,9 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use fibonacci_lib::{Fp, Sponge};
+use core::array::from_fn;
+use fibonacci_lib::{poseidon::Sponge, poseidon_hash, Fp};
+use mina_curves::pasta::Fp as FpMina;
 
 pub fn main() {
     let a: u64 = sp1_zkvm::io::read::<u64>();
@@ -15,8 +17,17 @@ pub fn main() {
     let hash_input_32: [Fp; 32] = std::array::from_fn(|i| Fp::from((i as u64) + 1));
     println!("cycle-tracker-start: poseidon_32");
     let result_32 = Sponge::hash(&hash_input_32);
-    println!("poseidon_32 output: {:?}", result_32.to_be_bytes());
     println!("cycle-tracker-end: poseidon_32");
+    println!(
+        "poseidon_32 custom sp1 output: {:?}",
+        result_32.to_decimal_string()
+    );
+
+    let hash_input_32: [FpMina; 32] = from_fn(|i| FpMina::from((i as u64) + 1));
+    println!("cycle-tracker-start: poseidon_hash_32");
+    let hash_out = poseidon_hash(&hash_input_32);
+    println!("cycle-tracker-end: poseidon_hash_32");
+    println!("poseidon_32 mina output: {:?}", hash_out);
 
     sp1_zkvm::io::commit_slice(&result.to_be_bytes());
 }

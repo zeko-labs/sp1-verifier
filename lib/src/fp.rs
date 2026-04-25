@@ -1,4 +1,5 @@
 // src/fp.rs
+use core::fmt;
 use crypto_bigint::{Encoding, NonZero, U256, U512};
 
 const MODULUS_U256: U256 =
@@ -83,5 +84,31 @@ impl Fp {
 
     pub fn from_be_bytes(bytes: [u8; 32]) -> Self {
         Fp(<U256 as Encoding>::from_be_bytes(bytes))
+    }
+
+    pub fn to_u256(self) -> U256 {
+        self.0
+    }
+
+    pub fn to_decimal_string(self) -> String {
+        let bytes = self.0.to_be_bytes();
+        let mut digits: Vec<u8> = vec![0];
+
+        for byte in bytes {
+            let mut carry = byte as u16;
+
+            for digit in digits.iter_mut().rev() {
+                let value = (*digit as u16) * 256 + carry;
+                *digit = (value % 10) as u8;
+                carry = value / 10;
+            }
+
+            while carry > 0 {
+                digits.insert(0, (carry % 10) as u8);
+                carry /= 10;
+            }
+        }
+
+        digits.into_iter().map(|d| char::from(b'0' + d)).collect()
     }
 }

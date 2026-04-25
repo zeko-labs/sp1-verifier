@@ -6,3 +6,5 @@ edition = "2021"
 [dependencies]
 sp1-zkvm = "6.0.2"
 fibonacci-lib = { path = "../lib" }
+mina-curves.workspace = true
+hex = "0.4"
