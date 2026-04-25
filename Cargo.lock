@@ -2941,7 +2941,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 [[package]]
 name = "mina-curves"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#ca224a28f66bc607a0d375d2d3213b8b40937a4a"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#8b9bf9d473731039e5bdd482f142a0cb6e4df224"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -2953,13 +2953,14 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#ca224a28f66bc607a0d375d2d3213b8b40937a4a"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#8b9bf9d473731039e5bdd482f142a0cb6e4df224"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
  "ark-poly",
  "ark-serialize 0.5.0",
  "bytemuck",
+ "crypto-bigint",
  "mina-curves",
  "o1-utils",
  "once_cell",
@@ -3188,7 +3189,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 [[package]]
 name = "o1-utils"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#ca224a28f66bc607a0d375d2d3213b8b40937a4a"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#8b9bf9d473731039e5bdd482f142a0cb6e4df224"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",

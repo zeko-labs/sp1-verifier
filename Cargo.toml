@@ -9,7 +9,7 @@ resolver = "2"
 [workspace.dependencies]
 alloy-sol-types = "1.0"
 mina-curves     = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
-mina-poseidon   = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm" }
+mina-poseidon   = { git = "https://github.com/zeko-labs/proof-systems", branch = "sp1-msm", features=["debug-log"] }
 
 [patch.crates-io]
 ark-ff        = { git = "https://github.com/zeko-labs/algebra", branch = "sp1-msm" }

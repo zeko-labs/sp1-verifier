@@ -12,6 +12,9 @@ mina-poseidon.workspace =true
 [dev-dependencies]
 num-bigint = "0.4"
 
+[features]
+debug-log =["mina-poseidon/debug-log"]
+
 
 # SP1 patch: U256::mul_mod → syscall_uint256_mulmod in zkVM
 [patch.crates-io]
