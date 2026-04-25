@@ -19,6 +19,7 @@ mina-poseidon     = { workspace = true, features =["debug-log"] }
 poly-commitment   = { workspace = true }
 bincode = { workspace = true }
 rkyv = { workspace = true }
+bytemuck = { workspace = true }
 
 [profile.release]
 lto            = "thin"

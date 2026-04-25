@@ -12,6 +12,10 @@
 //! Zeko SP1 — zkApp proof verifier
 
 use clap::Parser;
+use kimchi::{
+    circuits::constraints::FeatureFlags, groupmap::GroupMap, linearization::expr_linearization,
+    mina_curves::pasta::PallasParameters,
+};
 use sp1_sdk::{
     blocking::{ProveRequest, Prover, ProverClient},
     include_elf, Elf, ProvingKey, SP1Stdin,
@@ -26,11 +30,14 @@ use parser::parse_graphql_zkapp_file;
 use ark_poly::EvaluationDomain;
 use ark_serialize::CanonicalSerialize;
 use ledger::{
-    proofs::verification::{
-        compute_deferred_values, get_message_for_next_step_proof, get_message_for_next_wrap_proof,
-        get_prepared_statement, VK,
+    proofs::{
+        transaction::endos,
+        verification::{
+            compute_deferred_values, get_message_for_next_step_proof,
+            get_message_for_next_wrap_proof, get_prepared_statement, VK,
+        },
+        verifiers::make_zkapp_verifier_index,
     },
-    proofs::verifiers::make_zkapp_verifier_index,
     scan_state::transaction_logic::{
         verifiable,
         zkapp_command::{verifiable::create, ZkAppCommand},
@@ -104,7 +111,7 @@ fn main() {
     // 3. Derive public inputs on host
     // ------------------------------------------------------------------
     let proof = &parsed.proof;
-    let verifier_index = make_zkapp_verifier_index(&vk);
+    let mut verifier_index = make_zkapp_verifier_index(&vk);
     let domain_size = verifier_index.domain.size();
     eprintln!("✓ domain_size: {}", domain_size);
 
@@ -148,6 +155,13 @@ fn main() {
     // 4. Serialize VerifierIndex (SRS excluded — guest uses static one)
     //    Keep bincode here unless VerifierIndex becomes rkyv-compatible.
     // ------------------------------------------------------------------
+    let feature_flags = FeatureFlags::default();
+    let (linearization, powers_of_alpha) = expr_linearization(Some(&feature_flags), true);
+    let (endo_q, _) = endos::<Fq>();
+    verifier_index.linearization = linearization;
+    verifier_index.powers_of_alpha = powers_of_alpha;
+    verifier_index.endo = endo_q;
+
     let verifier_index_bytes =
         bincode::serialize(&verifier_index).expect("serialize verifier_index");
 

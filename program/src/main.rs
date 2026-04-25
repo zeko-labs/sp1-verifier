@@ -74,7 +74,10 @@ pub fn main() {
 
     #[inline(always)]
     fn bytes_to_fp(bytes: &[u8; 32]) -> mina_curves::pasta::Fp {
-        mina_curves::pasta::Fp::deserialize_uncompressed(&bytes[..]).unwrap()
+        unsafe {
+            let limbs: [u64; 4] = bytemuck::cast(*bytes);
+            core::mem::transmute(limbs)
+        }
     }
 
     #[inline(always)]

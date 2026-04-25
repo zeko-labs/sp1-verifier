@@ -13,10 +13,8 @@ use poly_commitment::{ipa::SRS, SRS as SRSTrait};
 use zeko_sp1_lib::{RkyvPoint, RkyvPolyComm, RkyvSRS};
 
 fn point_to_rkyv(p: &Pallas) -> RkyvPoint {
-    let mut x = [0u8; 32];
-    let mut y = [0u8; 32];
-    p.x.serialize_uncompressed(&mut x[..]).unwrap();
-    p.y.serialize_uncompressed(&mut y[..]).unwrap();
+    let mut x = bytemuck::cast(p.x.0 .0);
+    let mut y = bytemuck::cast(p.y.0 .0);
     RkyvPoint {
         x,
         y,

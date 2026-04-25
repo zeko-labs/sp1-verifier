@@ -34,6 +34,7 @@ ledger            = { workspace = true, features = ["network"] }
 serde             = { workspace = true }
 serde_json        = { workspace = true }
 zeko_sp1_lib      = { path = "../lib" }
+kimchi            = { workspace = true, features =["debug-log"] }
 
 [dev-dependencies]
 alloy-primitives = { version = "=0.8.20", features = ["sha3-keccak"] }
