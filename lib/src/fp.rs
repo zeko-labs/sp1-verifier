@@ -1,4 +1,3 @@
-// src/fp.rs
 use core::fmt;
 use crypto_bigint::{Encoding, NonZero, U256, U512};
 
@@ -14,6 +13,7 @@ const PALLAS_MODULUS_LIMBS: [u64; 4] = [
     0x0000000000000000,
     0x4000000000000000,
 ];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Fp(U256);
 
@@ -31,51 +31,49 @@ impl Fp {
 
     #[inline(always)]
     pub fn add(self, rhs: Self) -> Self {
-        Fp(self.0.add_mod(&rhs.0, &MODULUS_U256))
+        let out = Fp(self.0.add_mod(&rhs.0, &MODULUS_U256));
+        out
     }
 
     #[inline(always)]
     pub fn sub(self, rhs: Self) -> Self {
-        Fp(self.0.sub_mod(&rhs.0, &MODULUS_U256))
+        let out = Fp(self.0.sub_mod(&rhs.0, &MODULUS_U256));
+        out
     }
 
     #[inline(always)]
     pub fn mul(self, rhs: Self) -> Self {
-        #[cfg(target_os = "zkvm")]
-        {
-            let lhs_limbs: [u64; 4] = bytemuck::cast(self.0.to_le_bytes());
-            let rhs_limbs: [u64; 4] = bytemuck::cast(rhs.0.to_le_bytes());
-            let mut result: [u64; 4] = [0u64; 4];
-            unsafe {
-                sp1_lib::sys_bigint(
-                    &mut result as *mut [u64; 4],
-                    0, // OP_MULMOD
-                    &lhs_limbs as *const [u64; 4],
-                    &rhs_limbs as *const [u64; 4],
-                    &PALLAS_MODULUS_LIMBS as *const [u64; 4],
-                );
-            }
-            return Fp(U256::from_le_bytes(bytemuck::cast(result)));
-        }
+        let lhs_limbs: [u64; 4] = bytemuck::cast(self.0.to_le_bytes());
+        let rhs_limbs: [u64; 4] = bytemuck::cast(rhs.0.to_le_bytes());
+        let mut result: [u64; 4] = [0u64; 4];
 
-        #[cfg(not(target_os = "zkvm"))]
-        {
-            let (lo, hi) = self.0.mul_wide(&rhs.0);
-            let wide = U512::from((lo, hi));
-            let modulus_512 = U512::from((MODULUS_U256, U256::ZERO));
-            let (_, rem) = wide.div_rem(&NonZero::from_uint(modulus_512));
-            Fp(U256::from_le_bytes(
-                rem.to_le_bytes()[..32].try_into().unwrap(),
-            ))
+        #[cfg(target_os = "zkvm")]
+        unsafe {
+            sp1_lib::sys_bigint(
+                &mut result as *mut [u64; 4],
+                0, // OP_MULMOD
+                &lhs_limbs as *const [u64; 4],
+                &rhs_limbs as *const [u64; 4],
+                &PALLAS_MODULUS_LIMBS as *const [u64; 4],
+            );
         }
+        let out = Fp(U256::from_le_bytes(bytemuck::cast(result)));
+
+        out
     }
 
     #[inline(always)]
     pub fn pow7(self) -> Self {
+        std::println!("cycle-tracker-start: fp_pow7_total");
+
         let x2 = self.mul(self);
         let x4 = x2.mul(x2);
         let x6 = x4.mul(x2);
-        x6.mul(self)
+        let out = x6.mul(self);
+
+        std::println!("cycle-tracker-end: fp_pow7_total");
+
+        out
     }
 
     pub fn to_be_bytes(self) -> [u8; 32] {
@@ -110,5 +108,11 @@ impl Fp {
         }
 
         digits.into_iter().map(|d| char::from(b'0' + d)).collect()
+    }
+}
+
+impl fmt::Display for Fp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_decimal_string())
     }
 }
