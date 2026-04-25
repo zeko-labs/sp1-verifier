@@ -2,7 +2,6 @@
 sp1_zkvm::entrypoint!(main);
 
 use ark_serialize::CanonicalDeserialize;
-use core::array::from_fn;
 use kimchi::{
     circuits::constraints::FeatureFlags, groupmap::GroupMap, linearization::expr_linearization,
     mina_curves::pasta::PallasParameters,
@@ -25,7 +24,7 @@ use poly_commitment::{
     ipa::{OpeningProof, SRS},
 };
 use std::{collections::HashMap, sync::Arc};
-use zeko_sp1_lib::{poseidon_hash, ArchivedRkyvSRS, ZkappPublicValues};
+use zeko_sp1_lib::{ArchivedRkyvSRS, ZkappPublicValues};
 
 const FULL_ROUNDS: usize = 55;
 type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
@@ -177,16 +176,6 @@ pub fn main() {
 
     let proof_valid = result.is_ok();
     assert!(proof_valid, "Kimchi verify failed: {:?}", result.err());
-
-    // ------------------------------------------------------------------
-    // 9. Benchmark Poseidon hash on exactly 32 Fp elements
-    // ------------------------------------------------------------------
-    let hash_input_32: [Fp; 32] = from_fn(|i| Fp::from((i as u64) + 1));
-
-    println!("cycle-tracker-start: poseidon_hash_32");
-    let hash_out = poseidon_hash(&hash_input_32);
-    println!("poseidon_32 output: {:?}", hash_out);
-    println!("cycle-tracker-end: poseidon_hash_32");
 
     sp1_zkvm::io::commit(&ZkappPublicValues { proof_valid });
 }
