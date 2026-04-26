@@ -1,12 +1,33 @@
 use core::fmt;
 use crypto_bigint::{Encoding, NonZero, U256, U512};
 
+// Comment this line to disable all cycle logs in this file.
+macro_rules! cycle_start {
+    ($name:expr) => {
+        // std::println!(concat!("cycle-tracker-start: ", $name));
+    };
+}
+
+// Comment this line to disable all cycle logs in this file.
+macro_rules! cycle_end {
+    ($name:expr) => {
+        //  std::println!(concat!("cycle-tracker-end: ", $name));
+    };
+}
+
+// Uncomment these two macros instead to disable logs.
+// macro_rules! cycle_start {
+//     ($name:expr) => {};
+// }
+// macro_rules! cycle_end {
+//     ($name:expr) => {};
+// }
+
 const MODULUS_U256: U256 =
     U256::from_be_hex("40000000000000000000000000000000224698fc094cf91b992d30ed00000001");
 
 const MODULUS: NonZero<U256> = NonZero::from_uint(MODULUS_U256);
 
-// Pallas modulus as u64 limbs, little-endian
 const PALLAS_MODULUS_LIMBS: [u64; 4] = [
     0x992d30ed00000001,
     0x224698fc094cf91b,
@@ -31,14 +52,12 @@ impl Fp {
 
     #[inline(always)]
     pub fn add(self, rhs: Self) -> Self {
-        let out = Fp(self.0.add_mod(&rhs.0, &MODULUS_U256));
-        out
+        Fp(self.0.add_mod(&rhs.0, &MODULUS_U256))
     }
 
     #[inline(always)]
     pub fn sub(self, rhs: Self) -> Self {
-        let out = Fp(self.0.sub_mod(&rhs.0, &MODULUS_U256));
-        out
+        Fp(self.0.sub_mod(&rhs.0, &MODULUS_U256))
     }
 
     #[inline(always)]
@@ -51,27 +70,26 @@ impl Fp {
         unsafe {
             sp1_lib::sys_bigint(
                 &mut result as *mut [u64; 4],
-                0, // OP_MULMOD
+                0,
                 &lhs_limbs as *const [u64; 4],
                 &rhs_limbs as *const [u64; 4],
                 &PALLAS_MODULUS_LIMBS as *const [u64; 4],
             );
         }
-        let out = Fp(U256::from_le_bytes(bytemuck::cast(result)));
 
-        out
+        Fp(U256::from_le_bytes(bytemuck::cast(result)))
     }
 
     #[inline(always)]
     pub fn pow7(self) -> Self {
-        std::println!("cycle-tracker-start: fp_pow7_total");
+        cycle_start!("fp_pow7_total");
 
         let x2 = self.mul(self);
         let x4 = x2.mul(x2);
         let x6 = x4.mul(x2);
         let out = x6.mul(self);
 
-        std::println!("cycle-tracker-end: fp_pow7_total");
+        cycle_end!("fp_pow7_total");
 
         out
     }

@@ -1,17 +1,42 @@
 use crate::fp::Fp;
 use crate::params::{FULL_ROUNDS, MDS, RATE, ROUND_CONSTANTS, WIDTH};
 
+// Comment this line to disable all cycle logs in this file.
+macro_rules! cycle_start {
+    ($name:expr) => {
+        // std::println!(concat!("cycle-tracker-start: ", $name));
+    };
+}
+
+// Comment this line to disable all cycle logs in this file.
+macro_rules! cycle_end {
+    ($name:expr) => {
+        //   std::println!(concat!("cycle-tracker-end: ", $name));
+    };
+}
+
+// Uncomment these two macros instead to disable logs.
+// macro_rules! cycle_start {
+//     ($name:expr) => {};
+// }
+// macro_rules! cycle_end {
+//     ($name:expr) => {};
+// }
+
 pub struct Sponge {
     state: [Fp; WIDTH],
 }
 
 impl Sponge {
     pub fn new() -> Self {
-        std::println!("cycle-tracker-start: sp1_poseidon_new");
+        cycle_start!("sp1_poseidon_new");
+
         let out = Self {
             state: [Fp::ZERO; WIDTH],
         };
-        std::println!("cycle-tracker-end: sp1_poseidon_new");
+
+        cycle_end!("sp1_poseidon_new");
+
         out
     }
 
@@ -27,33 +52,30 @@ impl Sponge {
         }
     }
 
-    // MDS: 9 mul + 6 add
     fn mds(&mut self) {
-        std::println!("cycle-tracker-start: sp1_mds_total");
+        cycle_start!("sp1_mds_total");
 
         let s = self.state;
 
         for row in 0..WIDTH {
             self.state[row] = (0..WIDTH).fold(Fp::ZERO, |acc, col| {
                 let product = MDS[row][col].mul(s[col]);
-                let out = acc.add(product);
-
-                out
+                acc.add(product)
             });
         }
 
-        std::println!("cycle-tracker-end: sp1_mds_total");
+        cycle_end!("sp1_mds_total");
     }
 
     pub fn permute(&mut self) {
-        std::println!("cycle-tracker-start: sp1_poseidon_permute_total");
+        cycle_start!("sp1_poseidon_permute_total");
 
         for round in 0..FULL_ROUNDS {
             for i in 0..WIDTH {
                 self.state[i] = self.state[i].pow7();
             }
 
-            std::println!("cycle-tracker-start: sp1_apply_mds_total");
+            cycle_start!("sp1_apply_mds_total");
 
             let s = self.state;
 
@@ -62,20 +84,18 @@ impl Sponge {
                 let m1 = MDS[row][1].mul(s[1]);
                 let m2 = MDS[row][2].mul(s[2]);
 
-                let a0 = m0.add(m1);
-                self.state[row] = a0.add(m2);
-
+                self.state[row] = m0.add(m1).add(m2);
                 self.state[row] = self.state[row].add(ROUND_CONSTANTS[round][row]);
             }
 
-            std::println!("cycle-tracker-end: sp1_apply_mds_total");
+            cycle_end!("sp1_apply_mds_total");
         }
 
-        std::println!("cycle-tracker-end: sp1_poseidon_permute_total");
+        cycle_end!("sp1_poseidon_permute_total");
     }
 
     pub fn absorb(&mut self, inputs: &[Fp]) {
-        std::println!("cycle-tracker-start: sp1_poseidon_absorb_total");
+        cycle_start!("sp1_poseidon_absorb_total");
 
         for chunk in inputs.chunks(RATE) {
             for (i, &x) in chunk.iter().enumerate() {
@@ -85,31 +105,34 @@ impl Sponge {
             self.permute();
         }
 
-        std::println!("cycle-tracker-end: sp1_poseidon_absorb_total");
+        cycle_end!("sp1_poseidon_absorb_total");
     }
 
     pub fn squeeze(&self) -> Fp {
-        std::println!("cycle-tracker-start: sp1_poseidon_squeeze");
+        cycle_start!("sp1_poseidon_squeeze");
+
         let out = self.state[0];
-        std::println!("cycle-tracker-end: sp1_poseidon_squeeze");
+
+        cycle_end!("sp1_poseidon_squeeze");
+
         out
     }
 
     pub fn hash_pair(left: Fp, right: Fp) -> Fp {
-        std::println!("cycle-tracker-start: sp1_poseidon_hash_pair_total");
+        cycle_start!("sp1_poseidon_hash_pair_total");
 
         let mut s = Self::new();
         s.absorb(&[left, right]);
 
         let out = s.squeeze();
 
-        std::println!("cycle-tracker-end: sp1_poseidon_hash_pair_total");
+        cycle_end!("sp1_poseidon_hash_pair_total");
 
         out
     }
 
     pub fn hash(inputs: &[Fp]) -> Fp {
-        std::println!("cycle-tracker-start: sp1_poseidon_hash_total");
+        cycle_start!("sp1_poseidon_hash_total");
 
         let mut s = Self::new();
 
@@ -121,7 +144,7 @@ impl Sponge {
 
         let out = s.squeeze();
 
-        std::println!("cycle-tracker-end: sp1_poseidon_hash_total");
+        cycle_end!("sp1_poseidon_hash_total");
 
         out
     }
