@@ -11981,6 +11981,7 @@ dependencies = [
  "poly-commitment",
  "rkyv",
  "serde",
+ "sha2 0.10.9",
  "sp1-lib",
  "sp1-zkvm",
  "zeko_sp1_lib",

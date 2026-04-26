@@ -12,10 +12,7 @@
 //! Zeko SP1 — zkApp proof verifier
 
 use clap::Parser;
-use kimchi::{
-    circuits::constraints::FeatureFlags, groupmap::GroupMap, linearization::expr_linearization,
-    mina_curves::pasta::PallasParameters,
-};
+use kimchi::{circuits::constraints::FeatureFlags, linearization::expr_linearization};
 use sp1_sdk::{
     blocking::{ProveRequest, Prover, ProverClient},
     include_elf, Elf, ProvingKey, SP1Stdin,
@@ -28,16 +25,8 @@ mod parser;
 use parser::parse_graphql_zkapp_file;
 
 use ark_poly::EvaluationDomain;
-use ark_serialize::CanonicalSerialize;
 use ledger::{
-    proofs::{
-        transaction::endos,
-        verification::{
-            compute_deferred_values, get_message_for_next_step_proof,
-            get_message_for_next_wrap_proof, get_prepared_statement, VK,
-        },
-        verifiers::make_zkapp_verifier_index,
-    },
+    proofs::{transaction::endos, verifiers::make_zkapp_verifier_index},
     scan_state::transaction_logic::{
         verifiable,
         zkapp_command::{verifiable::create, ZkAppCommand},
@@ -92,7 +81,7 @@ fn main() {
     eprintln!("✓ parsed");
 
     // ------------------------------------------------------------------
-    // 2. Derive ZkappStatement
+    // 2. Derive ZkappStatement — reste sur le host (pas de crypto)
     // ------------------------------------------------------------------
     let cmd_verifiable = create(&cmd, false, |_, _| Ok(VerificationKeyWire::new(vk.clone())))
         .expect("verifiable::create");
@@ -108,56 +97,19 @@ fn main() {
     eprintln!("✓ zkapp_stmt derived");
 
     // ------------------------------------------------------------------
-    // 3. Derive public inputs on host
+    // 3. Serialize zkapp_stmt — passé au guest pour validation crypto
     // ------------------------------------------------------------------
-    let proof = &parsed.proof;
-    let mut verifier_index = make_zkapp_verifier_index(&vk);
-    let domain_size = verifier_index.domain.size();
-    eprintln!("✓ domain_size: {}", domain_size);
-
-    let vk_wrapper = VK {
-        commitments: *vk.wrap_index.clone(),
-        index: &verifier_index,
-        data: (),
-    };
-
-    let deferred_values = compute_deferred_values(proof).expect("compute_deferred_values");
-    let msg_next_step = get_message_for_next_step_proof(
-        &proof.statement.messages_for_next_step_proof,
-        &vk_wrapper.commitments,
-        &zkapp_stmt,
-    )
-    .expect("get_message_for_next_step_proof");
-    let msg_next_wrap =
-        get_message_for_next_wrap_proof(&proof.statement.proof_state.messages_for_next_wrap_proof)
-            .expect("get_message_for_next_wrap_proof");
-    let prepared = get_prepared_statement(
-        &msg_next_step,
-        &msg_next_wrap,
-        deferred_values,
-        &proof.statement.proof_state.sponge_digest_before_evaluations,
-    );
-    let public_inputs: Vec<Fq> = prepared
-        .to_public_input(vk_wrapper.index.public)
-        .expect("prepared -> public inputs");
-
-    let mut public_inputs_raw = Vec::with_capacity(public_inputs.len() * 32);
-    for fq in &public_inputs {
-        let mut buf = [0u8; 32];
-        fq.serialize_uncompressed(&mut buf[..])
-            .expect("serialize Fq");
-        public_inputs_raw.extend_from_slice(&buf);
-    }
-
-    eprintln!("✓ public inputs derived ({} elements)", public_inputs.len());
+    let zkapp_stmt_bytes = bincode::serialize(&zkapp_stmt).expect("serialize zkapp_stmt");
+    eprintln!("✓ zkapp_stmt: {} bytes", zkapp_stmt_bytes.len());
 
     // ------------------------------------------------------------------
-    // 4. Serialize VerifierIndex (SRS excluded — guest uses static one)
-    //    Keep bincode here unless VerifierIndex becomes rkyv-compatible.
+    // 4. Serialize VerifierIndex (SRS excluded)
     // ------------------------------------------------------------------
     let feature_flags = FeatureFlags::default();
     let (linearization, powers_of_alpha) = expr_linearization(Some(&feature_flags), true);
     let (endo_q, _) = endos::<Fq>();
+
+    let mut verifier_index = make_zkapp_verifier_index(&vk);
     verifier_index.linearization = linearization;
     verifier_index.powers_of_alpha = powers_of_alpha;
     verifier_index.endo = endo_q;
@@ -166,23 +118,23 @@ fn main() {
         bincode::serialize(&verifier_index).expect("serialize verifier_index");
 
     eprintln!("✓ verifier_index: {} bytes", verifier_index_bytes.len());
-    eprintln!("✓ public_inputs:  {} bytes", public_inputs_raw.len());
 
     // ------------------------------------------------------------------
-    // 5. Write inputs to SP1 stdin
-    //    1. vk_wire        -> write
-    //    2. proof          -> write
-    //    3. public_inputs  -> raw bytes
-    //    4. verifier_index -> bincode bytes
+    // 5. Build stdin
+    //    1. vk_wire        → write
+    //    2. proof          → write
+    //    3. zkapp_stmt     → write_slice (raw bincode)
+    //    4. verifier_index → write_slice (raw bincode)
     // ------------------------------------------------------------------
     let mut stdin = SP1Stdin::new();
     stdin.write(&vk_wire);
     stdin.write(&parsed.proof);
-    stdin.write_slice(&public_inputs_raw);
+    stdin.write_slice(&zkapp_stmt_bytes);
     stdin.write_slice(&verifier_index_bytes);
 
+    let client = ProverClient::from_env();
+
     if args.execute {
-        let client = ProverClient::from_env();
         let (output, report) = client
             .execute(ZKAPP_ELF, stdin)
             .run()
@@ -199,10 +151,14 @@ fn main() {
             bincode::deserialize(output.as_slice()).expect("decode public values");
 
         println!("  proof_valid: {}", public_values.proof_valid);
+        println!("  vk_hash: 0x{}", hex::encode(public_values.vk_hash));
+        for (i, s) in public_values.app_state.iter().enumerate() {
+            println!("  app_state[{}]: 0x{}", i, hex::encode(s));
+        }
+
         assert!(public_values.proof_valid, "Kimchi proof invalid");
         println!("✅ Kimchi proof verified successfully");
     } else {
-        let client = ProverClient::builder().cpu().build();
         let pk = client.setup(ZKAPP_ELF).expect("failed to setup ELF");
 
         println!("Generating proof...");
@@ -219,8 +175,12 @@ fn main() {
             bincode::deserialize(proof.public_values.as_slice()).expect("decode public values");
 
         println!("  proof_valid: {}", public_values.proof_valid);
-        assert!(public_values.proof_valid, "Kimchi proof invalid");
+        println!("  vk_hash: 0x{}", hex::encode(public_values.vk_hash));
+        for (i, s) in public_values.app_state.iter().enumerate() {
+            println!("  app_state[{}]: 0x{}", i, hex::encode(s));
+        }
 
+        assert!(public_values.proof_valid, "Kimchi proof invalid");
         std::fs::create_dir_all("proofs").expect("create proofs dir");
         proof.save("proofs/proof.bin").expect("save proof");
         println!("✓ Proof saved → proofs/proof.bin");

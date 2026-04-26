@@ -86,7 +86,10 @@ impl Default for AccountPrecondition {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct ZkappPublicValues {
     pub proof_valid: bool,
+    /// SHA256 vk hash
+    pub vk_hash: [u8; 32],
+    pub app_state: Vec<[u8; 32]>,
 }
