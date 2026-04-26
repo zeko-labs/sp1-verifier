@@ -3925,7 +3925,7 @@ dependencies = [
 [[package]]
 name = "groupmap"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -4585,7 +4585,7 @@ dependencies = [
 [[package]]
 name = "internal-tracing"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 
 [[package]]
 name = "ipnet"
@@ -4836,7 +4836,7 @@ dependencies = [
 [[package]]
 name = "kimchi"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -5211,7 +5211,7 @@ dependencies = [
 [[package]]
 name = "mina-curves"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-bn254",
  "ark-ec",
@@ -5235,7 +5235,7 @@ dependencies = [
 [[package]]
 name = "mina-hasher"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ff 0.5.0",
  "bitvec",
@@ -5521,7 +5521,7 @@ dependencies = [
 [[package]]
 name = "mina-poseidon"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -5541,7 +5541,7 @@ dependencies = [
 [[package]]
 name = "mina-signer"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -6128,7 +6128,7 @@ checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
 [[package]]
 name = "o1-utils"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -6913,7 +6913,7 @@ dependencies = [
 [[package]]
 name = "poly-commitment"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ec",
  "ark-ff 0.5.0",
@@ -10596,7 +10596,7 @@ dependencies = [
 [[package]]
 name = "turshi"
 version = "0.3.0"
-source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#6f3da681bb997e3e1b389626f732aba13ab56f34"
+source = "git+https://github.com/zeko-labs/proof-systems?branch=sp1-msm#5029a5229b95581fe247f29669223462adfb1a63"
 dependencies = [
  "ark-ff 0.5.0",
  "hex",
