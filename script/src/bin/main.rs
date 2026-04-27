@@ -85,6 +85,10 @@ fn main() {
 
     eprintln!("✓ parsed");
 
+    let zkapp_cmd_bytes =
+        bincode::serialize(&parsed.zkapp_command).expect("serialize zkapp_command wire");
+    eprintln!("✓ zkapp_command: {} bytes", zkapp_cmd_bytes.len());
+
     // ------------------------------------------------------------------
     // 2. Derive ZkappStatement — reste sur le host (pas de crypto)
     // ------------------------------------------------------------------
@@ -182,6 +186,7 @@ fn main() {
     stdin.write(&parsed.proof);
     stdin.write_slice(&zkapp_stmt_bytes);
     stdin.write_slice(&deferred_values_bytes);
+    stdin.write_slice(&zkapp_cmd_bytes);
     stdin.write_slice(&verifier_index_bytes);
 
     let client = ProverClient::from_env();
@@ -204,8 +209,11 @@ fn main() {
 
         println!("  proof_valid: {}", public_values.proof_valid);
         println!("  vk_hash: 0x{}", hex::encode(public_values.vk_hash));
-        for (i, s) in public_values.app_state.iter().enumerate() {
-            println!("  app_state[{}]: 0x{}", i, hex::encode(s));
+        for (i, s) in public_values.state_before.iter().enumerate() {
+            println!("  state_before[{}]: 0x{}", i, hex::encode(s));
+        }
+        for (i, s) in public_values.state_after.iter().enumerate() {
+            println!("  state_after[{}]: 0x{}", i, hex::encode(s));
         }
 
         assert!(public_values.proof_valid, "Kimchi proof invalid");
@@ -228,8 +236,11 @@ fn main() {
 
         println!("  proof_valid: {}", public_values.proof_valid);
         println!("  vk_hash: 0x{}", hex::encode(public_values.vk_hash));
-        for (i, s) in public_values.app_state.iter().enumerate() {
-            println!("  app_state[{}]: 0x{}", i, hex::encode(s));
+        for (i, s) in public_values.state_before.iter().enumerate() {
+            println!("  state_before[{}]: 0x{}", i, hex::encode(s));
+        }
+        for (i, s) in public_values.state_after.iter().enumerate() {
+            println!("  state_after[{}]: 0x{}", i, hex::encode(s));
         }
 
         assert!(public_values.proof_valid, "Kimchi proof invalid");

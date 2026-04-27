@@ -9,6 +9,7 @@ use kimchi::{
 use ledger::proofs::public_input::plonk_checks::ShiftedValue;
 use ledger::proofs::public_input::prepared_statement::{DeferredValues, Plonk};
 use ledger::proofs::step::FeatureFlags as LFF;
+use ledger::scan_state::transaction_logic::zkapp_command::{OrIgnore, ZkAppCommand};
 use ledger::scan_state::transaction_logic::zkapp_statement::ZkappStatement;
 use ledger::{
     proofs::{
@@ -25,8 +26,8 @@ use ledger::{
 use mina_curves::pasta::{Fp, Fq, Pallas};
 use mina_p2p_messages::v2::{
     CompositionTypesBranchDataDomainLog2StableV1, CompositionTypesBranchDataStableV1,
-    MinaBaseVerificationKeyWireStableV1, PicklesBaseProofsVerifiedStableV1,
-    PicklesProofProofsVerified2ReprStableV2,
+    MinaBaseVerificationKeyWireStableV1, MinaBaseZkappCommandTStableV1WireStableV1,
+    PicklesBaseProofsVerifiedStableV1, PicklesProofProofsVerified2ReprStableV2,
 };
 use mina_poseidon::sponge::{DefaultFqSponge, DefaultFrSponge};
 use poly_commitment::{
@@ -81,6 +82,7 @@ pub fn main() {
     let proof: PicklesProofProofsVerified2ReprStableV2 = sp1_zkvm::io::read();
     let zkapp_stmt_raw = sp1_zkvm::io::read_vec();
     let deferred_values_raw = sp1_zkvm::io::read_vec();
+    let zkapp_cmd_raw = sp1_zkvm::io::read_vec();
     let verifier_index_raw = sp1_zkvm::io::read_vec();
 
     // ------------------------------------------------------------------
@@ -136,6 +138,22 @@ pub fn main() {
     };
 
     println!("cycle-tracker-end: deserialize_inputs");
+
+    println!("cycle-tracker-start: verify_account_updates");
+
+    let zkapp_cmd_wire: MinaBaseZkappCommandTStableV1WireStableV1 =
+        bincode::deserialize(&zkapp_cmd_raw).expect("deserialize zkapp_command wire");
+
+    let zkapp_cmd: ZkAppCommand = (&zkapp_cmd_wire).try_into().expect("wire -> ZkAppCommand");
+
+    let recomputed_digest = zkapp_cmd.account_updates.0[0].elt.account_update.digest();
+
+    assert_eq!(
+        recomputed_digest, *zkapp_stmt.account_update,
+        "recomputed digest mismatch — zkapp_cmd tampered"
+    );
+
+    println!("cycle-tracker-end: verify_account_updates");
 
     // ------------------------------------------------------------------
     // 3. Deserialize VerifierIndex
@@ -269,19 +287,47 @@ pub fn main() {
     // ------------------------------------------------------------------
     let vk_hash: [u8; 32] = Sha256::digest(&verifier_index_raw).into();
 
-    let app_state: Vec<[u8; 32]> = zkapp_stmt
-        .to_field_elements()
+    let state_before: Vec<[u8; 32]> = zkapp_cmd.account_updates.0[0]
+        .elt
+        .account_update
+        .body
+        .preconditions
+        .account
+        .0
+        .state
         .iter()
-        .map(|f: &Fp| {
-            let mut buf = [0u8; 32];
-            f.serialize_uncompressed(&mut buf[..]).unwrap();
-            buf
+        .map(|s| match s {
+            OrIgnore::Check(f) => {
+                let mut buf = [0u8; 32];
+                f.serialize_uncompressed(&mut buf[..]).unwrap();
+                buf
+            }
+            OrIgnore::Ignore => [0u8; 32],
+        })
+        .collect();
+
+    // state_after
+    let state_after: Vec<[u8; 32]> = zkapp_cmd.account_updates.0[0]
+        .elt
+        .account_update
+        .body
+        .update
+        .app_state
+        .iter()
+        .map(|s| match s {
+            ledger::scan_state::transaction_logic::zkapp_command::SetOrKeep::Set(f) => {
+                let mut buf = [0u8; 32];
+                f.serialize_uncompressed(&mut buf[..]).unwrap();
+                buf
+            }
+            ledger::scan_state::transaction_logic::zkapp_command::SetOrKeep::Keep => [0u8; 32],
         })
         .collect();
 
     sp1_zkvm::io::commit(&ZkappPublicValues {
         proof_valid,
         vk_hash,
-        app_state,
+        state_before,
+        state_after,
     });
 }
