@@ -6,14 +6,17 @@ use kimchi::{
     circuits::constraints::FeatureFlags, groupmap::GroupMap, linearization::expr_linearization,
     mina_curves::pasta::PallasParameters,
 };
+use ledger::proofs::public_input::plonk_checks::ShiftedValue;
+use ledger::proofs::public_input::prepared_statement::{DeferredValues, Plonk};
+use ledger::proofs::step::FeatureFlags as LFF;
 use ledger::scan_state::transaction_logic::zkapp_statement::ZkappStatement;
 use ledger::{
     proofs::{
         prover::make_padded_proof_from_p2p,
         transaction::{endos, InnerCurve},
         verification::{
-            compute_deferred_values, get_message_for_next_step_proof,
-            get_message_for_next_wrap_proof, get_prepared_statement, VK,
+            get_message_for_next_step_proof, get_message_for_next_wrap_proof,
+            get_prepared_statement, VK,
         },
         VerifierIndex,
     },
@@ -21,7 +24,9 @@ use ledger::{
 };
 use mina_curves::pasta::{Fp, Fq, Pallas};
 use mina_p2p_messages::v2::{
-    MinaBaseVerificationKeyWireStableV1, PicklesProofProofsVerified2ReprStableV2,
+    CompositionTypesBranchDataDomainLog2StableV1, CompositionTypesBranchDataStableV1,
+    MinaBaseVerificationKeyWireStableV1, PicklesBaseProofsVerifiedStableV1,
+    PicklesProofProofsVerified2ReprStableV2,
 };
 use mina_poseidon::sponge::{DefaultFqSponge, DefaultFrSponge};
 use poly_commitment::{
@@ -30,7 +35,7 @@ use poly_commitment::{
 };
 use sha2::{Digest, Sha256};
 use std::{collections::HashMap, sync::Arc};
-use zeko_sp1_lib::{ArchivedRkyvSRS, ZkappPublicValues};
+use zeko_sp1_lib::{ArchivedRkyvSRS, SerializableDeferredValues, ZkappPublicValues};
 
 const FULL_ROUNDS: usize = 55;
 type SpongeParams = mina_poseidon::constants::PlonkSpongeConstantsKimchi;
@@ -39,6 +44,35 @@ type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 
 static SRS_RKYV: &[u8] = include_bytes!("srs_rkyv.bin");
 
+// Helpers définis au niveau module pour éviter les conflits
+#[inline(always)]
+fn deserialize_fp(b: [u8; 32]) -> Fp {
+    Fp::deserialize_uncompressed(&b[..]).unwrap()
+}
+
+#[inline(always)]
+fn to_shifting(b: [u8; 32]) -> ShiftedValue<Fp> {
+    ShiftedValue {
+        shifted: deserialize_fp(b),
+    }
+}
+
+#[inline(always)]
+fn montgomery_bytes_to_fp(bytes: &[u8; 32]) -> Fp {
+    unsafe {
+        let limbs: [u64; 4] = bytemuck::cast(*bytes);
+        core::mem::transmute(limbs)
+    }
+}
+
+#[inline(always)]
+fn rkyv_to_pallas(p: &zeko_sp1_lib::ArchivedRkyvPoint) -> Pallas {
+    if p.infinity {
+        return Pallas::default();
+    }
+    Pallas::new_unchecked(montgomery_bytes_to_fp(&p.x), montgomery_bytes_to_fp(&p.y))
+}
+
 pub fn main() {
     // ------------------------------------------------------------------
     // 1. Read inputs
@@ -46,14 +80,61 @@ pub fn main() {
     let vk_wire: MinaBaseVerificationKeyWireStableV1 = sp1_zkvm::io::read();
     let proof: PicklesProofProofsVerified2ReprStableV2 = sp1_zkvm::io::read();
     let zkapp_stmt_raw = sp1_zkvm::io::read_vec();
+    let deferred_values_raw = sp1_zkvm::io::read_vec();
     let verifier_index_raw = sp1_zkvm::io::read_vec();
 
     // ------------------------------------------------------------------
-    // 2. Deserialize zkapp_stmt
+    // 2. Deserialize inputs
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: deserialize_inputs");
+
     let zkapp_stmt: ZkappStatement =
         bincode::deserialize(&zkapp_stmt_raw).expect("deserialize zkapp_stmt");
+
+    let sdv: SerializableDeferredValues =
+        bincode::deserialize(&deferred_values_raw).expect("deserialize deferred_values");
+
+    let deferred_values = DeferredValues {
+        plonk: Plonk {
+            alpha: sdv.plonk.alpha,
+            beta: sdv.plonk.beta,
+            gamma: sdv.plonk.gamma,
+            zeta: sdv.plonk.zeta,
+            zeta_to_srs_length: to_shifting(sdv.plonk.zeta_to_srs_length),
+            zeta_to_domain_size: to_shifting(sdv.plonk.zeta_to_domain_size),
+            perm: to_shifting(sdv.plonk.perm),
+            lookup: sdv.plonk.lookup,
+            feature_flags: LFF {
+                range_check0: sdv.plonk.feature_flags_range_check0,
+                range_check1: sdv.plonk.feature_flags_range_check1,
+                foreign_field_add: sdv.plonk.feature_flags_foreign_field_add,
+                foreign_field_mul: sdv.plonk.feature_flags_foreign_field_mul,
+                xor: sdv.plonk.feature_flags_xor,
+                rot: sdv.plonk.feature_flags_rot,
+                lookup: sdv.plonk.feature_flags_lookup,
+                runtime_tables: sdv.plonk.feature_flags_runtime_tables,
+            },
+        },
+        combined_inner_product: to_shifting(sdv.combined_inner_product),
+        b: to_shifting(sdv.b),
+        xi: sdv.xi,
+        bulletproof_challenges: sdv
+            .bulletproof_challenges
+            .iter()
+            .map(|b| deserialize_fp(*b))
+            .collect(),
+        branch_data: CompositionTypesBranchDataStableV1 {
+            proofs_verified: match sdv.branch_data_proofs_verified {
+                0 => PicklesBaseProofsVerifiedStableV1::N0,
+                1 => PicklesBaseProofsVerifiedStableV1::N1,
+                _ => PicklesBaseProofsVerifiedStableV1::N2,
+            },
+            domain_log2: CompositionTypesBranchDataDomainLog2StableV1(
+                sdv.branch_data_domain_log2.into(),
+            ),
+        },
+    };
+
     println!("cycle-tracker-end: deserialize_inputs");
 
     // ------------------------------------------------------------------
@@ -69,22 +150,6 @@ pub fn main() {
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: load_static_srs");
     let archived = unsafe { rkyv::access_unchecked::<ArchivedRkyvSRS>(SRS_RKYV) };
-
-    #[inline(always)]
-    fn bytes_to_fp(bytes: &[u8; 32]) -> mina_curves::pasta::Fp {
-        unsafe {
-            let limbs: [u64; 4] = bytemuck::cast(*bytes);
-            core::mem::transmute(limbs)
-        }
-    }
-
-    #[inline(always)]
-    fn rkyv_to_pallas(p: &zeko_sp1_lib::ArchivedRkyvPoint) -> Pallas {
-        if p.infinity {
-            return Pallas::default();
-        }
-        Pallas::new_unchecked(bytes_to_fp(&p.x), bytes_to_fp(&p.y))
-    }
 
     let g: Vec<Pallas> = archived.g.iter().map(|p| rkyv_to_pallas(p)).collect();
     let h: Pallas = rkyv_to_pallas(&archived.h);
@@ -139,7 +204,7 @@ pub fn main() {
     println!("cycle-tracker-end: verify_integrity");
 
     // ------------------------------------------------------------------
-    // 7. Compute public inputs from zkapp_stmt — binding cryptographique
+    // 7. Compute public inputs from zkapp_stmt
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: compute_public_inputs");
     let vk_wrapper = VK {
@@ -147,8 +212,6 @@ pub fn main() {
         index: &verifier_index,
         data: (),
     };
-
-    let deferred_values = compute_deferred_values(&proof).expect("compute_deferred_values");
 
     let msg_next_step = get_message_for_next_step_proof(
         &proof.statement.messages_for_next_step_proof,
@@ -171,6 +234,7 @@ pub fn main() {
     let public_inputs: Vec<Fq> = prepared
         .to_public_input(vk_wrapper.index.public)
         .expect("prepared -> public inputs");
+
     println!("cycle-tracker-end: compute_public_inputs");
 
     // ------------------------------------------------------------------
@@ -201,15 +265,14 @@ pub fn main() {
     assert!(proof_valid, "Kimchi verify failed: {:?}", result.err());
 
     // ------------------------------------------------------------------
-    // 10. Extract app state — sécurisé car proof_valid = true
-    //     et public_inputs viennent de zkapp_stmt
+    // 10. Commit public values
     // ------------------------------------------------------------------
     let vk_hash: [u8; 32] = Sha256::digest(&verifier_index_raw).into();
 
     let app_state: Vec<[u8; 32]> = zkapp_stmt
         .to_field_elements()
         .iter()
-        .map(|f: &mina_curves::pasta::Fp| {
+        .map(|f: &Fp| {
             let mut buf = [0u8; 32];
             f.serialize_uncompressed(&mut buf[..]).unwrap();
             buf

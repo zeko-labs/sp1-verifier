@@ -9,7 +9,7 @@ sp1-zkvm          = "6.0.2"
 ark-serialize     = { workspace = true }
 ledger            = { workspace = true, default-features = false }
 mina-core         = { workspace = true, default-features = false }
-mina-curves       = { workspace = true }
+mina-curves       = { workspace = true, default-features = false  }
 mina-p2p-messages = { workspace = true, default-features = false }
 ark-ff            = { workspace = true }
 serde             = { workspace = true }

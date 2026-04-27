@@ -13,20 +13,25 @@
 
 use clap::Parser;
 use kimchi::{circuits::constraints::FeatureFlags, linearization::expr_linearization};
+use mina_p2p_messages::v2::PicklesBaseProofsVerifiedStableV1;
 use sp1_sdk::{
     blocking::{ProveRequest, Prover, ProverClient},
     include_elf, Elf, ProvingKey, SP1Stdin,
 };
 use std::time::Instant;
 use zeko_sp1_lib::ZkappPublicValues;
+use zeko_sp1_lib::{SerializableDeferredValues, SerializablePlonk};
 
 #[path = "../parser.rs"]
 mod parser;
+use ark_serialize::CanonicalSerialize;
 use parser::parse_graphql_zkapp_file;
 
-use ark_poly::EvaluationDomain;
 use ledger::{
-    proofs::{transaction::endos, verifiers::make_zkapp_verifier_index},
+    proofs::{
+        transaction::endos, verification::compute_deferred_values,
+        verifiers::make_zkapp_verifier_index,
+    },
     scan_state::transaction_logic::{
         verifiable,
         zkapp_command::{verifiable::create, ZkAppCommand},
@@ -102,6 +107,52 @@ fn main() {
     let zkapp_stmt_bytes = bincode::serialize(&zkapp_stmt).expect("serialize zkapp_stmt");
     eprintln!("✓ zkapp_stmt: {} bytes", zkapp_stmt_bytes.len());
 
+    fn fp_to_bytes(fp: mina_curves::pasta::Fp) -> [u8; 32] {
+        let mut buf: [u8; 32] = [0u8; 32];
+        fp.serialize_uncompressed(&mut buf[..]).unwrap();
+        buf
+    }
+
+    let dv = compute_deferred_values(&parsed.proof).expect("compute_deferred_values");
+
+    let serializable_dv = SerializableDeferredValues {
+        plonk: SerializablePlonk {
+            alpha: dv.plonk.alpha,
+            beta: dv.plonk.beta,
+            gamma: dv.plonk.gamma,
+            zeta: dv.plonk.zeta,
+            zeta_to_srs_length: fp_to_bytes(dv.plonk.zeta_to_srs_length.shifted),
+            zeta_to_domain_size: fp_to_bytes(dv.plonk.zeta_to_domain_size.shifted),
+            perm: fp_to_bytes(dv.plonk.perm.shifted),
+            lookup: dv.plonk.lookup,
+            feature_flags_range_check0: dv.plonk.feature_flags.range_check0,
+            feature_flags_range_check1: dv.plonk.feature_flags.range_check1,
+            feature_flags_foreign_field_add: dv.plonk.feature_flags.foreign_field_add,
+            feature_flags_foreign_field_mul: dv.plonk.feature_flags.foreign_field_mul,
+            feature_flags_xor: dv.plonk.feature_flags.xor,
+            feature_flags_rot: dv.plonk.feature_flags.rot,
+            feature_flags_lookup: dv.plonk.feature_flags.lookup,
+            feature_flags_runtime_tables: dv.plonk.feature_flags.runtime_tables,
+        },
+        combined_inner_product: fp_to_bytes(dv.combined_inner_product.shifted),
+        b: fp_to_bytes(dv.b.shifted),
+        xi: dv.xi,
+        bulletproof_challenges: dv
+            .bulletproof_challenges
+            .iter()
+            .map(|fp| fp_to_bytes(*fp))
+            .collect(),
+        branch_data_proofs_verified: match dv.branch_data.proofs_verified {
+            PicklesBaseProofsVerifiedStableV1::N0 => 0,
+            PicklesBaseProofsVerifiedStableV1::N1 => 1,
+            PicklesBaseProofsVerifiedStableV1::N2 => 2,
+        },
+        branch_data_domain_log2: dv.branch_data.domain_log2.0.into(),
+    };
+    let deferred_values_bytes =
+        bincode::serialize(&serializable_dv).expect("serialize deferred_values");
+    eprintln!("✓ deferred_values: {} bytes", deferred_values_bytes.len());
+
     // ------------------------------------------------------------------
     // 4. Serialize VerifierIndex (SRS excluded)
     // ------------------------------------------------------------------
@@ -130,6 +181,7 @@ fn main() {
     stdin.write(&vk_wire);
     stdin.write(&parsed.proof);
     stdin.write_slice(&zkapp_stmt_bytes);
+    stdin.write_slice(&deferred_values_bytes);
     stdin.write_slice(&verifier_index_bytes);
 
     let client = ProverClient::from_env();
