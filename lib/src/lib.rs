@@ -26,10 +26,10 @@ pub struct RkyvPolyComm {
 #[derive(Archive, RkyvSerialize, RkyvDeserialize, Clone, Debug)]
 #[rkyv(derive(Debug))]
 pub struct RkyvSRS {
-    pub g: Vec<RkyvPoint>,
-    pub h: RkyvPoint,
+    pub g_flat: Vec<[u8; 65]>, // 32768 × 65 bytes
+    pub h_flat: [u8; 65],
     pub domain_size: usize,
-    pub lagrange_bases: Vec<RkyvPolyComm>,
+    pub lagrange_flat: Vec<[u8; 65]>, // domain_size × 65 bytes
 }
 
 // ---------------------------------------------------------------------------

@@ -63,42 +63,31 @@ fn to_shifted_value(bytes: [u8; 32]) -> ShiftedValue<Fp> {
 }
 
 #[inline(always)]
-fn montgomery_bytes_to_fp(bytes: &[u8; 32]) -> Fp {
-    // This is still representation-sensitive.
-    // Kept only because your archived SRS currently stores Montgomery bytes.
+fn flat_to_fp(bytes: &[u8], offset: usize) -> Fp {
+    let mut limbs = [0u64; 4];
     unsafe {
-        let limbs: [u64; 4] = bytemuck::cast(*bytes);
+        core::ptr::copy_nonoverlapping(
+            bytes[offset..offset + 32].as_ptr(),
+            limbs.as_mut_ptr() as *mut u8,
+            32,
+        );
         core::mem::transmute(limbs)
     }
 }
 
 #[inline(always)]
-fn rkyv_to_pallas(p: &zeko_sp1_lib::ArchivedRkyvPoint) -> Pallas {
-    if p.infinity {
+fn flat_to_pallas(p: &[u8; 65]) -> Pallas {
+    if p[64] != 0 {
         return Pallas::default();
     }
-    Pallas::new_unchecked(montgomery_bytes_to_fp(&p.x), montgomery_bytes_to_fp(&p.y))
+    let x = flat_to_fp(p, 0);
+    let y = flat_to_fp(p, 32);
+    Pallas::new_unchecked(x, y)
 }
 
 #[inline(always)]
 fn sha256_bytes(data: &[u8]) -> [u8; 32] {
     Sha256::digest(data).into()
-}
-
-#[inline(always)]
-fn resolve_or_ignore(expected: &OrIgnore<Fp>, fallback: Fp) -> Fp {
-    match expected {
-        OrIgnore::Check(x) => *x,
-        OrIgnore::Ignore => fallback,
-    }
-}
-
-#[inline(always)]
-fn resolve_set_or_keep(update: &SetOrKeep<Fp>, previous: Fp) -> Fp {
-    match update {
-        SetOrKeep::Set(x) => *x,
-        SetOrKeep::Keep => previous,
-    }
 }
 
 fn main() {
@@ -212,13 +201,15 @@ fn main() {
 
     let archived = unsafe { rkyv::access_unchecked::<ArchivedRkyvSRS>(SRS_RKYV) };
 
-    let g: Vec<Pallas> = archived.g.iter().map(|p| rkyv_to_pallas(p)).collect();
-    let h: Pallas = rkyv_to_pallas(&archived.h);
+    let g: Vec<Pallas> = archived.g_flat.iter().map(|p| flat_to_pallas(p)).collect();
+
+    let h: Pallas = flat_to_pallas(&archived.h_flat);
+
     let lagrange_bases: Vec<poly_commitment::PolyComm<Pallas>> = archived
-        .lagrange_bases
+        .lagrange_flat
         .iter()
-        .map(|comm| poly_commitment::PolyComm {
-            chunks: comm.chunks.iter().map(|p| rkyv_to_pallas(p)).collect(),
+        .map(|p| poly_commitment::PolyComm {
+            chunks: vec![flat_to_pallas(p)],
         })
         .collect();
 

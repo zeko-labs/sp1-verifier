@@ -1,8 +1,7 @@
 //! Run once to generate the static SRS with lagrange bases (rkyv format):
 //! cargo run --release -p generate-srs
 
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
-use ark_serialize::CanonicalSerialize;
+use ark_poly::Radix2EvaluationDomain;
 use ledger::{
     proofs::{verifiers::make_zkapp_verifier_index, BACKEND_TOCK_ROUNDS_N},
     VerificationKey,
@@ -12,20 +11,12 @@ use mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1;
 use poly_commitment::{ipa::SRS, SRS as SRSTrait};
 use zeko_sp1_lib::{RkyvPoint, RkyvPolyComm, RkyvSRS};
 
-fn point_to_rkyv(p: &Pallas) -> RkyvPoint {
-    let mut x = bytemuck::cast(p.x.0 .0);
-    let mut y = bytemuck::cast(p.y.0 .0);
-    RkyvPoint {
-        x,
-        y,
-        infinity: p.infinity,
-    }
-}
-
-fn poly_comm_to_rkyv(comm: &poly_commitment::PolyComm<Pallas>) -> RkyvPolyComm {
-    RkyvPolyComm {
-        chunks: comm.chunks.iter().map(point_to_rkyv).collect(),
-    }
+fn point_to_flat(p: &Pallas) -> [u8; 65] {
+    let mut out = [0u8; 65];
+    out[..32].copy_from_slice(&bytemuck::bytes_of(&p.x.0 .0));
+    out[32..64].copy_from_slice(&bytemuck::bytes_of(&p.y.0 .0));
+    out[64] = p.infinity as u8;
+    out
 }
 
 fn main() {
@@ -70,14 +61,14 @@ fn main() {
     let bases = srs.get_lagrange_basis_from_domain_size(domain_size);
 
     let rkyv_srs = RkyvSRS {
-        g: srs.g.iter().map(point_to_rkyv).collect(),
-        h: point_to_rkyv(&srs.h),
+        g_flat: srs.g.iter().map(point_to_flat).collect(),
+        h_flat: point_to_flat(&srs.h),
         domain_size,
-        lagrange_bases: bases.iter().map(poly_comm_to_rkyv).collect(),
+        lagrange_flat: bases.iter().map(|c| point_to_flat(&c.chunks[0])).collect(),
     };
 
-    println!("  g points:        {}", rkyv_srs.g.len());
-    println!("  lagrange_bases:  {}", rkyv_srs.lagrange_bases.len());
+    println!("  g points:        {}", rkyv_srs.g_flat.len());
+    println!("  lagrange_bases:  {}", rkyv_srs.lagrange_flat.len());
 
     // ------------------------------------------------------------------
     // 4. Serialize with rkyv
