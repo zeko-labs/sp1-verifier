@@ -1,6 +1,7 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
+use ark_ff::AdditiveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use kimchi::{
     circuits::constraints::FeatureFlags, groupmap::GroupMap, linearization::expr_linearization,
@@ -9,20 +10,14 @@ use kimchi::{
 use ledger::proofs::public_input::plonk_checks::ShiftedValue;
 use ledger::proofs::public_input::prepared_statement::{DeferredValues, Plonk};
 use ledger::proofs::step::FeatureFlags as LFF;
-use ledger::scan_state::transaction_logic::zkapp_command::{OrIgnore, ZkAppCommand};
-use ledger::scan_state::transaction_logic::zkapp_statement::ZkappStatement;
-use ledger::{
-    proofs::{
-        prover::make_padded_proof_from_p2p,
-        transaction::{endos, InnerCurve},
-        verification::{
-            get_message_for_next_step_proof, get_message_for_next_wrap_proof,
-            get_prepared_statement, VK,
-        },
-        VerifierIndex,
-    },
-    VerificationKey,
+use ledger::proofs::transaction::{endos, InnerCurve};
+use ledger::proofs::verification::{
+    get_message_for_next_step_proof, get_message_for_next_wrap_proof, get_prepared_statement, VK,
 };
+use ledger::proofs::{prover::make_padded_proof_from_p2p, VerifierIndex};
+use ledger::scan_state::transaction_logic::zkapp_command::{OrIgnore, SetOrKeep, ZkAppCommand};
+use ledger::scan_state::transaction_logic::zkapp_statement::ZkappStatement;
+use ledger::VerificationKey;
 use mina_curves::pasta::{Fp, Fq, Pallas};
 use mina_p2p_messages::v2::{
     CompositionTypesBranchDataDomainLog2StableV1, CompositionTypesBranchDataStableV1,
@@ -45,21 +40,32 @@ type EFrSponge = DefaultFrSponge<Fq, SpongeParams, FULL_ROUNDS>;
 
 static SRS_RKYV: &[u8] = include_bytes!("srs_rkyv.bin");
 
-// Helpers définis au niveau module pour éviter les conflits
+// ---------- Helpers ----------
+
 #[inline(always)]
-fn deserialize_fp(b: [u8; 32]) -> Fp {
-    Fp::deserialize_uncompressed(&b[..]).unwrap()
+fn deserialize_fp(bytes: [u8; 32]) -> Fp {
+    Fp::deserialize_uncompressed(&bytes[..]).expect("invalid Fp encoding")
 }
 
 #[inline(always)]
-fn to_shifting(b: [u8; 32]) -> ShiftedValue<Fp> {
+fn fq_to_bytes<F: CanonicalSerialize>(x: &F) -> [u8; 32] {
+    let mut buf = [0u8; 32];
+    x.serialize_uncompressed(&mut buf[..])
+        .expect("serialize field");
+    buf
+}
+
+#[inline(always)]
+fn to_shifted_value(bytes: [u8; 32]) -> ShiftedValue<Fp> {
     ShiftedValue {
-        shifted: deserialize_fp(b),
+        shifted: deserialize_fp(bytes),
     }
 }
 
 #[inline(always)]
 fn montgomery_bytes_to_fp(bytes: &[u8; 32]) -> Fp {
+    // This is still representation-sensitive.
+    // Kept only because your archived SRS currently stores Montgomery bytes.
     unsafe {
         let limbs: [u64; 4] = bytemuck::cast(*bytes);
         core::mem::transmute(limbs)
@@ -74,7 +80,28 @@ fn rkyv_to_pallas(p: &zeko_sp1_lib::ArchivedRkyvPoint) -> Pallas {
     Pallas::new_unchecked(montgomery_bytes_to_fp(&p.x), montgomery_bytes_to_fp(&p.y))
 }
 
-pub fn main() {
+#[inline(always)]
+fn sha256_bytes(data: &[u8]) -> [u8; 32] {
+    Sha256::digest(data).into()
+}
+
+#[inline(always)]
+fn resolve_or_ignore(expected: &OrIgnore<Fp>, fallback: Fp) -> Fp {
+    match expected {
+        OrIgnore::Check(x) => *x,
+        OrIgnore::Ignore => fallback,
+    }
+}
+
+#[inline(always)]
+fn resolve_set_or_keep(update: &SetOrKeep<Fp>, previous: Fp) -> Fp {
+    match update {
+        SetOrKeep::Set(x) => *x,
+        SetOrKeep::Keep => previous,
+    }
+}
+
+fn main() {
     // ------------------------------------------------------------------
     // 1. Read inputs
     // ------------------------------------------------------------------
@@ -102,9 +129,9 @@ pub fn main() {
             beta: sdv.plonk.beta,
             gamma: sdv.plonk.gamma,
             zeta: sdv.plonk.zeta,
-            zeta_to_srs_length: to_shifting(sdv.plonk.zeta_to_srs_length),
-            zeta_to_domain_size: to_shifting(sdv.plonk.zeta_to_domain_size),
-            perm: to_shifting(sdv.plonk.perm),
+            zeta_to_srs_length: to_shifted_value(sdv.plonk.zeta_to_srs_length),
+            zeta_to_domain_size: to_shifted_value(sdv.plonk.zeta_to_domain_size),
+            perm: to_shifted_value(sdv.plonk.perm),
             lookup: sdv.plonk.lookup,
             feature_flags: LFF {
                 range_check0: sdv.plonk.feature_flags_range_check0,
@@ -117,8 +144,8 @@ pub fn main() {
                 runtime_tables: sdv.plonk.feature_flags_runtime_tables,
             },
         },
-        combined_inner_product: to_shifting(sdv.combined_inner_product),
-        b: to_shifting(sdv.b),
+        combined_inner_product: to_shifted_value(sdv.combined_inner_product),
+        b: to_shifted_value(sdv.b),
         xi: sdv.xi,
         bulletproof_challenges: sdv
             .bulletproof_challenges
@@ -137,26 +164,41 @@ pub fn main() {
         },
     };
 
-    println!("cycle-tracker-end: deserialize_inputs");
-
-    println!("cycle-tracker-start: verify_account_updates");
-
     let zkapp_cmd_wire: MinaBaseZkappCommandTStableV1WireStableV1 =
         bincode::deserialize(&zkapp_cmd_raw).expect("deserialize zkapp_command wire");
 
     let zkapp_cmd: ZkAppCommand = (&zkapp_cmd_wire).try_into().expect("wire -> ZkAppCommand");
 
-    let recomputed_digest = zkapp_cmd.account_updates.0[0].elt.account_update.digest();
+    println!("cycle-tracker-end: deserialize_inputs");
+
+    // ------------------------------------------------------------------
+    // 3. Bind zkapp_cmd <-> zkapp_stmt
+    // ------------------------------------------------------------------
+    println!("cycle-tracker-start: verify_account_update_binding");
+
+    assert!(
+        !zkapp_cmd.account_updates.0.is_empty(),
+        "empty account_updates"
+    );
+
+    let first_update = &zkapp_cmd.account_updates.0[0].elt.account_update;
+    let recomputed_digest = first_update.digest();
 
     assert_eq!(
         recomputed_digest, *zkapp_stmt.account_update,
-        "recomputed digest mismatch — zkapp_cmd tampered"
+        "zkapp_stmt/account_update mismatch"
     );
 
-    println!("cycle-tracker-end: verify_account_updates");
+    assert_eq!(
+        zkapp_cmd.account_updates.0[0].elt.calls.hash(),
+        *zkapp_stmt.calls,
+        "zkapp_stmt/calls mismatch"
+    );
+
+    println!("cycle-tracker-end: verify_account_update_binding");
 
     // ------------------------------------------------------------------
-    // 3. Deserialize VerifierIndex
+    // 4. Deserialize verifier index
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: deserialize_verifier_index");
     let mut verifier_index: VerifierIndex<Fq> =
@@ -164,9 +206,10 @@ pub fn main() {
     println!("cycle-tracker-end: deserialize_verifier_index");
 
     // ------------------------------------------------------------------
-    // 4. Load static SRS
+    // 5. Load static SRS
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: load_static_srs");
+
     let archived = unsafe { rkyv::access_unchecked::<ArchivedRkyvSRS>(SRS_RKYV) };
 
     let g: Vec<Pallas> = archived.g.iter().map(|p| rkyv_to_pallas(p)).collect();
@@ -188,43 +231,59 @@ pub fn main() {
         h,
         lagrange_bases: HashMapCache::new_from_hashmap(map),
     };
+
     verifier_index.srs = Arc::new(srs);
+
     println!("cycle-tracker-end: load_static_srs");
 
     // ------------------------------------------------------------------
-    // 5. Reconstruct skipped fields
+    // 6. Reconstruct skipped fields
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: reconstruct_skip_fields");
+
     let feature_flags = FeatureFlags::default();
     let (linearization, powers_of_alpha) = expr_linearization(Some(&feature_flags), true);
     let (endo_q, _) = endos::<Fq>();
+
     verifier_index.linearization = linearization;
     verifier_index.powers_of_alpha = powers_of_alpha;
     verifier_index.endo = endo_q;
+
     println!("cycle-tracker-end: reconstruct_skip_fields");
 
     // ------------------------------------------------------------------
-    // 6. Verify integrity
+    // 7. Stronger circuit binding
     // ------------------------------------------------------------------
-    println!("cycle-tracker-start: verify_integrity");
+    println!("cycle-tracker-start: verify_circuit_binding");
+
     let vk: VerificationKey = (&vk_wire).try_into().expect("vk wire -> runtime");
+
     let make_poly = |poly: &InnerCurve<Fp>| poly_commitment::PolyComm {
         chunks: vec![poly.to_affine()],
     };
+
+    // These checks are partial but still useful as sanity guards.
     assert_eq!(
         verifier_index.generic_comm,
-        make_poly(&vk.wrap_index.generic)
+        make_poly(&vk.wrap_index.generic),
+        "generic commitment mismatch"
     );
+
     assert_eq!(
         verifier_index.sigma_comm,
-        vk.wrap_index.sigma.each_ref().map(make_poly)
+        vk.wrap_index.sigma.each_ref().map(make_poly),
+        "sigma commitments mismatch"
     );
-    println!("cycle-tracker-end: verify_integrity");
+
+    let verifier_index_hash = sha256_bytes(&verifier_index_raw);
+
+    println!("cycle-tracker-end: verify_circuit_binding");
 
     // ------------------------------------------------------------------
-    // 7. Compute public inputs from zkapp_stmt
+    // 8. Compute public inputs
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: compute_public_inputs");
+
     let vk_wrapper = VK {
         commitments: *vk.wrap_index.clone(),
         index: &verifier_index,
@@ -256,7 +315,7 @@ pub fn main() {
     println!("cycle-tracker-end: compute_public_inputs");
 
     // ------------------------------------------------------------------
-    // 8. Pad proof + group map
+    // 9. Pad proof + group map
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: make_padded_proof");
     let prover_proof = make_padded_proof_from_p2p(&proof).expect("padded proof");
@@ -267,9 +326,10 @@ pub fn main() {
     println!("cycle-tracker-end: group_map_setup");
 
     // ------------------------------------------------------------------
-    // 9. Kimchi verify
+    // 10. Verify Kimchi proof
     // ------------------------------------------------------------------
     println!("cycle-tracker-start: kimchi_verify");
+
     let result = kimchi::verifier::verify::<
         FULL_ROUNDS,
         Pallas,
@@ -277,57 +337,59 @@ pub fn main() {
         EFrSponge,
         OpeningProof<Pallas, FULL_ROUNDS>,
     >(&group_map, &verifier_index, &prover_proof, &public_inputs);
+
     println!("cycle-tracker-end: kimchi_verify");
 
     let proof_valid = result.is_ok();
     assert!(proof_valid, "Kimchi verify failed: {:?}", result.err());
 
     // ------------------------------------------------------------------
-    // 10. Commit public values
+    // 11. Resolve canonical state transition
     // ------------------------------------------------------------------
-    let vk_hash: [u8; 32] = Sha256::digest(&verifier_index_raw).into();
+    println!("cycle-tracker-start: resolve_settlement_values");
 
-    let state_before: Vec<[u8; 32]> = zkapp_cmd.account_updates.0[0]
-        .elt
-        .account_update
-        .body
-        .preconditions
-        .account
-        .0
-        .state
-        .iter()
-        .map(|s| match s {
-            OrIgnore::Check(f) => {
-                let mut buf = [0u8; 32];
-                f.serialize_uncompressed(&mut buf[..]).unwrap();
-                buf
-            }
+    let body = &first_update.body;
+
+    let mut app_state_before = [[0u8; 32]; 8];
+    let mut app_state_after = [[0u8; 32]; 8];
+
+    for i in 0..8 {
+        app_state_before[i] = match &body.preconditions.account.0.state[i] {
+            OrIgnore::Check(f) => fq_to_bytes(f),
             OrIgnore::Ignore => [0u8; 32],
-        })
-        .collect();
+        };
 
-    // state_after
-    let state_after: Vec<[u8; 32]> = zkapp_cmd.account_updates.0[0]
-        .elt
-        .account_update
-        .body
-        .update
-        .app_state
-        .iter()
-        .map(|s| match s {
-            ledger::scan_state::transaction_logic::zkapp_command::SetOrKeep::Set(f) => {
-                let mut buf = [0u8; 32];
-                f.serialize_uncompressed(&mut buf[..]).unwrap();
-                buf
-            }
-            ledger::scan_state::transaction_logic::zkapp_command::SetOrKeep::Keep => [0u8; 32],
-        })
-        .collect();
+        // app_state_after[i] = match &body.update.app_state[i] {
+        //     SetOrKeep::Set(f) => fq_to_bytes(f),
+        //     SetOrKeep::Keep => match &body.preconditions.account.0.state[i] {
+        //         OrIgnore::Check(f) => fq_to_bytes(f),
+        //         OrIgnore::Ignore => [0u8; 32],
+        //     },
+        // };
+        app_state_after[i] = match &body.update.app_state[i] {
+            SetOrKeep::Set(f) => fq_to_bytes(f),
+            SetOrKeep::Keep => [0u8; 32],
+        };
+    }
+
+    // Same caveat: this assumes the canonical rollup transition is encoded here.
+    // Adjust these paths to your actual rollup semantics.
+    let action_state_before = match &body.preconditions.account.0.action_state {
+        OrIgnore::Check(x) => fq_to_bytes(x),
+        OrIgnore::Ignore => [0u8; 32],
+    };
+
+    println!("cycle-tracker-end: resolve_settlement_values");
+
+    // ------------------------------------------------------------------
+    // 12. Commit settlement outputs
+    // ------------------------------------------------------------------
 
     sp1_zkvm::io::commit(&ZkappPublicValues {
         proof_valid,
-        vk_hash,
-        state_before,
-        state_after,
+        vk_hash: verifier_index_hash,
+        state_before: app_state_before,
+        state_after: app_state_after,
+        action_state_before,
     });
 }

@@ -91,8 +91,9 @@ pub struct ZkappPublicValues {
     pub proof_valid: bool,
     /// SHA256 vk hash
     pub vk_hash: [u8; 32],
-    pub state_before: Vec<[u8; 32]>,
-    pub state_after: Vec<[u8; 32]>,
+    pub state_before: [[u8; 32]; 8],
+    pub state_after: [[u8; 32]; 8],
+    pub action_state_before: [u8; 32],
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

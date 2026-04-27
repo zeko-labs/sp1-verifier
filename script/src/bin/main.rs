@@ -215,6 +215,10 @@ fn main() {
         for (i, s) in public_values.state_after.iter().enumerate() {
             println!("  state_after[{}]: 0x{}", i, hex::encode(s));
         }
+        println!(
+            "  action_state_before: 0x{}",
+            hex::encode(public_values.action_state_before)
+        );
 
         assert!(public_values.proof_valid, "Kimchi proof invalid");
         println!("✅ Kimchi proof verified successfully");
@@ -242,6 +246,10 @@ fn main() {
         for (i, s) in public_values.state_after.iter().enumerate() {
             println!("  state_after[{}]: 0x{}", i, hex::encode(s));
         }
+        println!(
+            "  action_state_before: 0x{}",
+            hex::encode(public_values.action_state_before)
+        );
 
         assert!(public_values.proof_valid, "Kimchi proof invalid");
         std::fs::create_dir_all("proofs").expect("create proofs dir");
