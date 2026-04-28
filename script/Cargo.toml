@@ -34,7 +34,7 @@ ledger            = { workspace = true, features = ["network"] }
 serde             = { workspace = true }
 serde_json        = { workspace = true }
 zeko_sp1_lib      = { path = "../lib" }
-kimchi            = { workspace = true, features =["debug-log"] }
+kimchi            = { workspace = true, features =[] }
 
 [dev-dependencies]
 alloy-primitives = { version = "=0.8.20", features = ["sha3-keccak"] }
@@ -43,5 +43,3 @@ criterion = "0.5"
 [build-dependencies]
 sp1-build = "6.0.2"
 
-[features]
-debug-log = ["ark-ec/debug-log","ark-ff/debug-log"]

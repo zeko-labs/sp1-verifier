@@ -9,8 +9,8 @@ resolver = "2"
 
 [workspace.dependencies]
 # ark
-ark-ec          = { version = "0.5.0", features = ["std","debug-log"] }
-ark-ff          = { version = "0.5.0", features = ["std","debug-log"] }
+ark-ec          = { version = "0.5.0", features = ["std"] }
+ark-ff          = { version = "0.5.0", features = ["std"] }
 ark-serialize   = { version = "0.5.0", features = ["std"] }
 ark-poly        = { version = "0.5.0", features = ["std"] }
 
