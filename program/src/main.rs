@@ -1,7 +1,6 @@
 #![no_main]
 sp1_zkvm::entrypoint!(main);
 
-use ark_ff::AdditiveGroup;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use kimchi::{
     circuits::constraints::FeatureFlags, groupmap::GroupMap, linearization::expr_linearization,
@@ -29,7 +28,6 @@ use poly_commitment::{
     hash_map_cache::HashMapCache,
     ipa::{OpeningProof, SRS},
 };
-use sha2::{Digest, Sha256};
 use std::{collections::HashMap, sync::Arc};
 use zeko_sp1_lib::{ArchivedRkyvSRS, SerializableDeferredValues, ZkappPublicValues};
 
@@ -83,11 +81,6 @@ fn flat_to_pallas(p: &[u8; 65]) -> Pallas {
     let x = flat_to_fp(p, 0);
     let y = flat_to_fp(p, 32);
     Pallas::new_unchecked(x, y)
-}
-
-#[inline(always)]
-fn sha256_bytes(data: &[u8]) -> [u8; 32] {
-    Sha256::digest(data).into()
 }
 
 fn main() {
@@ -266,7 +259,9 @@ fn main() {
         "sigma commitments mismatch"
     );
 
-    let verifier_index_hash = sha256_bytes(&verifier_index_raw);
+    let vk_hash = vk.hash();
+
+    let verifier_index_hash = fq_to_bytes(&vk_hash);
 
     println!("cycle-tracker-end: verify_circuit_binding");
 
