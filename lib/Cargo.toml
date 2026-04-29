@@ -1,17 +1,10 @@
 [package]
-name = "fibonacci-lib"
+name = "zeko_sp1_lib"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-alloy-sol-types = { workspace = true }
-alloy-primitives = "=0.8.20"
-hex = { version = "0.4", default-features = false }
-openzeppelin-crypto = { git = "https://github.com/youtpout/rust-contracts-stylus.git", branch = "poseidon-mina", features = ["ruint"]  }
-
-[dev-dependencies]
-alloy-primitives = { version = "=0.8.20", features = ["sha3-keccak"] }
-tokio = { version = "1.12.0", features = ["full"] }
-ethers = "2.0"
-eyre = "0.6.8"
-dotenv = "0.15.0"
+mina-p2p-messages = { workspace = true, default-features = false }
+mina-curves = { workspace = true, default-features = false }
+rkyv = { workspace = true }
+serde = { workspace = true }

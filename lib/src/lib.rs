@@ -1,27 +1,128 @@
-use alloy_sol_types::sol;
-use openzeppelin_crypto::{
-    arithmetic::uint::U256,
-    field::{instance::FpKimchi, prime::PrimeField},
-    poseidon_mina::{instance::kimchi::KimchiParams, PoseidonMina},
+use mina_p2p_messages::v2::{
+    MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1,
+    PicklesProofProofsVerified2ReprStableV2,
 };
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
+use serde::{Deserialize, Serialize};
 
-sol! {
-    /// The public values encoded as a struct that can be easily deserialized inside Solidity.
-    struct PublicValuesStruct {
-        uint32 n;
-        uint32 a;
-        uint32 b;
+// ---------------------------------------------------------------------------
+// rkyv structs — used only for static SRS file embedding (include_bytes!)
+// ---------------------------------------------------------------------------
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, Clone, Debug)]
+#[rkyv(derive(Debug))]
+pub struct RkyvPoint {
+    pub x: [u8; 32],
+    pub y: [u8; 32],
+    pub infinity: bool,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, Clone, Debug)]
+#[rkyv(derive(Debug))]
+pub struct RkyvPolyComm {
+    pub chunks: Vec<RkyvPoint>,
+}
+
+#[derive(Archive, RkyvSerialize, RkyvDeserialize, Clone, Debug)]
+#[rkyv(derive(Debug))]
+pub struct RkyvSRS {
+    pub g_flat: Vec<[u8; 65]>, // 32768 × 65 bytes
+    pub h_flat: [u8; 65],
+    pub domain_size: usize,
+    pub lagrange_flat: Vec<[u8; 65]>, // domain_size × 65 bytes
+}
+
+// ---------------------------------------------------------------------------
+// Host-only — parsing helpers
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Debug)]
+pub struct ParsedZkappTransaction {
+    pub wire_command: MinaBaseUserCommandStableV2,
+    pub zkapp_command: MinaBaseZkappCommandTStableV1WireStableV1,
+    pub proof: PicklesProofProofsVerified2ReprStableV2,
+}
+
+// ---------------------------------------------------------------------------
+// serde — used by sp1_zkvm::io::commit and bincode for host/guest I/O
+// ---------------------------------------------------------------------------
+
+/// Account precondition coming from the Solidity smart contract.
+/// Each field is Option: None means "no constraint" (wildcard).
+/// This will be committed as a public value so Solidity can verify
+/// that the guest used the expected preconditions.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AccountPrecondition {
+    /// Balance in nanomina
+    pub balance: Option<u64>,
+    /// Account nonce
+    pub nonce: Option<u32>,
+    /// Receipt chain hash as raw bytes
+    pub receipt_chain_hash: Option<[u8; 32]>,
+    /// Delegate public key (compressed)
+    pub delegate: Option<[u8; 32]>,
+    /// zkApp state array — 8 field elements as bytes, None = wildcard
+    pub state: [Option<[u8; 32]>; 8],
+    /// Action state as bytes
+    pub action_state: Option<[u8; 32]>,
+    /// Whether the account has been proved
+    pub proved_state: Option<bool>,
+    /// Whether the account is new
+    pub is_new: Option<bool>,
+}
+
+impl Default for AccountPrecondition {
+    fn default() -> Self {
+        Self {
+            balance: None,
+            nonce: None,
+            receipt_chain_hash: None,
+            delegate: None,
+            state: [None; 8],
+            action_state: None,
+            proved_state: None,
+            is_new: None,
+        }
     }
 }
 
-pub fn hash(vec: Vec<alloy_primitives::U256>) -> alloy_primitives::U256 {
-    let mut poseidon = PoseidonMina::<KimchiParams, FpKimchi>::new();
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ZkappPublicValues {
+    pub proof_valid: bool,
+    /// SHA256 vk hash
+    pub vk_hash: [u8; 32],
+    pub state_before: [[u8; 32]; 8],
+    pub state_after: [[u8; 32]; 8],
+    pub action_state_before: [u8; 32],
+}
 
-    for input in vec.iter() {
-        let fp = FpKimchi::from_bigint(U256::from(*input));
-        poseidon.absorb(&[fp]);
-    }
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct SerializablePlonk {
+    pub alpha: [u64; 2],
+    pub beta: [u64; 2],
+    pub gamma: [u64; 2],
+    pub zeta: [u64; 2],
+    pub zeta_to_srs_length: [u8; 32], // Fp serialisé
+    pub zeta_to_domain_size: [u8; 32],
+    pub perm: [u8; 32],
+    pub lookup: Option<[u64; 2]>,
+    pub feature_flags_range_check0: bool,
+    pub feature_flags_range_check1: bool,
+    pub feature_flags_foreign_field_add: bool,
+    pub feature_flags_foreign_field_mul: bool,
+    pub feature_flags_xor: bool,
+    pub feature_flags_rot: bool,
+    pub feature_flags_lookup: bool,
+    pub feature_flags_runtime_tables: bool,
+}
 
-    let hash = poseidon.squeeze();
-    hash.into_bigint().into()
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct SerializableDeferredValues {
+    pub plonk: SerializablePlonk,
+    pub combined_inner_product: [u8; 32], // Fp serialisé
+    pub b: [u8; 32],
+    pub xi: [u64; 2],
+    pub bulletproof_challenges: Vec<[u8; 32]>, // Vec<Fp> serialisé
+    pub branch_data_proofs_verified: u8,       // 0, 1, ou 2
+    pub branch_data_domain_log2: u8,
 }

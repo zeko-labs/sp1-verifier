@@ -1,7 +1,7 @@
 use sp1_sdk::{blocking::MockProver, blocking::Prover, include_elf, Elf, HashableKey, ProvingKey};
 
 /// The ELF (executable and linkable format) file for the Succinct RISC-V zkVM.
-const FIBONACCI_ELF: Elf = include_elf!("fibonacci-program");
+const FIBONACCI_ELF: Elf = include_elf!("zkapp-program");
 
 fn main() {
     let prover = MockProver::new();
