@@ -16,7 +16,7 @@ use kimchi::{circuits::constraints::FeatureFlags, linearization::expr_linearizat
 use mina_p2p_messages::v2::PicklesBaseProofsVerifiedStableV1;
 use sp1_sdk::{
     blocking::{ProveRequest, Prover, ProverClient},
-    include_elf, Elf, ProvingKey, SP1Stdin,
+    include_elf, Elf, HashableKey, ProvingKey, SP1Stdin,
 };
 use std::time::Instant;
 use zeko_sp1_lib::ZkappPublicValues;
@@ -220,6 +220,8 @@ fn main() {
             hex::encode(public_values.action_state_before)
         );
 
+        let pk = client.setup(ZKAPP_ELF).expect("failed to setup ELF");
+        println!("Program Verification Key: {}", pk.verifying_key().bytes32());
         assert!(public_values.proof_valid, "Kimchi proof invalid");
         println!("✅ Kimchi proof verified successfully");
     } else {
