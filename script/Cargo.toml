@@ -9,7 +9,7 @@ name = "zkapp"
 path = "src/bin/main.rs"
 
 [dependencies]
-sp1-sdk         = { version = "6.0.2", features = ["blocking", "native-gnark", "profiling", "cuda"] }
+sp1-sdk         = { version = "6.0.2", features = ["blocking", "native-gnark", "profiling", "cuda","network"] }
 tokio           = { version = "1", features = ["full"] }
 clap            = { version = "4.0", features = ["derive", "env"] }
 tracing         = "0.1.40"

@@ -6,10 +6,10 @@ use ledger::{
     proofs::{verifiers::make_zkapp_verifier_index, BACKEND_TOCK_ROUNDS_N},
     VerificationKey,
 };
-use mina_curves::pasta::{Fp, Pallas};
+use mina_curves::pasta::Pallas;
 use mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1;
 use poly_commitment::{ipa::SRS, SRS as SRSTrait};
-use zeko_sp1_lib::{RkyvPoint, RkyvPolyComm, RkyvSRS};
+use zeko_sp1_lib::RkyvSRS;
 
 fn point_to_flat(p: &Pallas) -> [u8; 65] {
     let mut out = [0u8; 65];
@@ -46,7 +46,7 @@ fn main() {
     let degree = 1 << BACKEND_TOCK_ROUNDS_N;
     println!("  srs degree:  {}", degree);
 
-    let mut srs = SRS::<Pallas>::create_parallel(degree);
+    let srs = SRS::<Pallas>::create_parallel(degree);
     println!("  SRS created ({} points)", srs.g.len());
 
     let domain = Radix2EvaluationDomain::new(domain_size).unwrap();
