@@ -102,6 +102,8 @@ RUST_LOG=info cargo run --release -- --execute
 
 ### Prover Network 
 
-It takes less than 5 minutes to generate a Groth16 proof for 1B7 cycles on the prover network.
+It takes less than 5 minutes to generate a Groth16 proof for 1B5 gas on the prover network.
 
-The current cost to prove a Zeko rollup app command is around 2 PROVE tokens. The PROVE token price was $0.26 on May 7, so that comes to around $0.50.
+The current cost to prove a Zeko rollup app command is around 1.1 PROVE tokens. The PROVE token price was $0.26 on May 7, so that comes to around $0.30.
+
+[Request](https://explorer.succinct.xyz/request/0x67eecb92c7ed781f06271e661bcf49543eb2f555a98f80745e266e23d79b0b8a)

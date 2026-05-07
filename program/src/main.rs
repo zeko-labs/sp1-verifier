@@ -50,6 +50,7 @@ fn fq_to_bytes<F: CanonicalSerialize>(x: &F) -> [u8; 32] {
     let mut buf = [0u8; 32];
     x.serialize_uncompressed(&mut buf[..])
         .expect("serialize field");
+    buf.reverse(); // ark-serialize outputs little-endian, EVM expects big-endian
     buf
 }
 
