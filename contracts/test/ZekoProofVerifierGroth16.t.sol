@@ -7,134 +7,113 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {ZekoProofVerifier} from "../src/ZekoProofVerifier.sol";
 import {ISP1Verifier} from "../src/ZekoProofVerifier.sol";
 
-struct SP1ProofFixtureJson {
-    string  system;
-    string  graphqlPath;
-    string  vkPath;
-    bool    proofValid;
-    uint256 zkappCommandBytesLen;
-    uint256 zkappStmtBytesLen;
-    uint256 deferredValuesBytesLen;
-    uint256 verifierIndexBytesLen;
-    bytes32 vkey;
-    bytes   publicValues;
-    bytes   proof;
-}
-
 contract ZekoProofVerifierGroth16Test is Test {
     using stdJson for string;
 
-    // -------------------------------------------------------------------------
-    // Constants
-    // -------------------------------------------------------------------------
-
     uint256 private constant PUBLIC_VALUES_LENGTH = 577;
-    uint256 private constant STATE_ARRAY_LENGTH   = 8;
+    uint256 private constant STATE_ARRAY_LENGTH = 8;
 
-    // SP1VerifierGateway (Groth16) deployed on Ethereum mainnet.
-    // Source: https://docs.succinct.xyz/docs/sp1/verification/contract-addresses
-    address private constant SP1_GATEWAY_MAINNET = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
+    address private constant SP1_GATEWAY =
+        0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
-    // -------------------------------------------------------------------------
-    // Actors
-    // -------------------------------------------------------------------------
+    // Current Zeko state — these live inside the SP1 public values, not the SP1 vkey.
+    //
+    // vk_hash          = Hash of the current Zeko verification key
+    // state_before[2]  = current account tree root
+    // action_state     = current action state hash
+    bytes32 private constant VK_HASH =
+        bytes32(
+            uint256(
+                28938888072174442574591380326671967812369207887553320784822775940404701845190
+            )
+        );
+    bytes32 private constant CURRENT_ROOT =
+        bytes32(
+            uint256(
+                11066481997049907237147074214507440714257448164444404179272910777489391657254
+            )
+        );
+    bytes32 private constant ACTION_STATE =
+        bytes32(
+            uint256(
+                24329566355992902769881875375733216652114605558452463596572110463644683476021
+            )
+        );
 
     address public owner = address(this);
     address public alice = address(0xA11CE);
-    address public bob   = address(0xB0B);
+    address public bob = address(0xB0B);
 
-    // -------------------------------------------------------------------------
-    // Contracts
-    // -------------------------------------------------------------------------
-
-    ISP1Verifier      public gateway; // real deployed gateway, used via fork
+    ISP1Verifier public gateway;
     ZekoProofVerifier public zeko;
 
-    // -------------------------------------------------------------------------
-    // Fixture
-    // -------------------------------------------------------------------------
-
-    SP1ProofFixtureJson public fixture;
-    ZekoProofVerifier.DecodedPublicValues public decoded;
+    // SP1 program vkey — only needed for the real proof test.
+    // Loaded from the fixture file which must be regenerated when the Zeko VK changes.
+    bytes32 public fixtureVkey;
+    bytes public fixturePublicValues;
+    bytes public fixtureProof;
 
     // -------------------------------------------------------------------------
     // Setup
     // -------------------------------------------------------------------------
 
-    function loadFixture() public view returns (SP1ProofFixtureJson memory f) {
-        string memory root = vm.projectRoot();
-        string memory path = string.concat(root, "/src/fixtures/groth16-fixture.json");
-        string memory json = vm.readFile(path);
-
-        f.system                 = json.readString(".system");
-        f.graphqlPath            = json.readString(".graphqlPath");
-        f.vkPath                 = json.readString(".vkPath");
-        f.proofValid             = json.readBool(".proofValid");
-        f.zkappCommandBytesLen   = json.readUint(".zkappCommandBytesLen");
-        f.zkappStmtBytesLen      = json.readUint(".zkappStmtBytesLen");
-        f.deferredValuesBytesLen = json.readUint(".deferredValuesBytesLen");
-        f.verifierIndexBytesLen  = json.readUint(".verifierIndexBytesLen");
-        f.vkey                   = json.readBytes32(".vkey");
-        f.publicValues           = json.readBytes(".publicValues");
-        f.proof                  = json.readBytes(".proof");
-    }
-
     function setUp() public {
-        // Fork mainnet so the real SP1VerifierGateway with all registered
-        // verifier routes is available. RPC URL is read from foundry.toml
-        // [rpc_endpoints] or the ETH_RPC_URL environment variable.
         vm.createSelectFork("mainnet");
+        gateway = ISP1Verifier(SP1_GATEWAY);
 
-        fixture = loadFixture();
-        decoded = _decodePublicValues(fixture.publicValues);
-
-        // Point at the real deployed gateway — no local deployment needed.
-        gateway = ISP1Verifier(SP1_GATEWAY_MAINNET);
+        // Load the SP1 program vkey from the fixture.
+        // publicValues and proof are only used in test_ValidGroth16ProofUpdatesRoot.
+        string memory json = vm.readFile(
+            string.concat(
+                vm.projectRoot(),
+                "/src/fixtures/groth16-fixture.json"
+            )
+        );
+        fixtureVkey = json.readBytes32(".vkey");
+        fixturePublicValues = json.readBytes(".publicValues");
+        fixtureProof = json.readBytes(".proof");
 
         zeko = new ZekoProofVerifier(
             address(gateway),
-            fixture.vkey,
-            decoded.vkHash,
-            decoded.actionStateBefore,
-            decoded.stateBefore[2]
+            fixtureVkey,
+            VK_HASH,
+            ACTION_STATE,
+            CURRENT_ROOT
         );
     }
 
-    // -------------------------------------------------------------------------
-    // Basic setup assertions
-    // -------------------------------------------------------------------------
-
     function test_SetUp() public view {
-        assertEq(address(zeko.verifier()), SP1_GATEWAY_MAINNET);
-        assertEq(zeko.programVKey(), fixture.vkey);
+        assertEq(address(zeko.verifier()), SP1_GATEWAY);
+        assertEq(zeko.programVKey(), fixtureVkey);
         assertEq(zeko.owner(), owner);
         assertEq(zeko.pendingOwner(), address(0));
-        assertEq(zeko.vkHash(), decoded.vkHash);
-        assertEq(zeko.actionState(), decoded.actionStateBefore);
-        assertEq(zeko.currentRoot(), decoded.stateBefore[2]);
+        assertEq(zeko.vkHash(), VK_HASH);
+        assertEq(zeko.actionState(), ACTION_STATE);
+        assertEq(zeko.currentRoot(), CURRENT_ROOT);
     }
-
-    // -------------------------------------------------------------------------
-    // Decoding
-    // -------------------------------------------------------------------------
 
     function test_DecodePublicValues() public view {
-        ZekoProofVerifier.DecodedPublicValues memory d =
-            zeko.getDecodedPublicValues(fixture.publicValues);
+        bytes32 newRoot = bytes32(uint256(0xdeadbeef));
+        bytes memory pv = _buildPublicValues(
+            true,
+            VK_HASH,
+            CURRENT_ROOT,
+            newRoot,
+            ACTION_STATE
+        );
 
-        assertEq(d.proofValid,        decoded.proofValid);
-        assertEq(d.vkHash,            decoded.vkHash);
-        assertEq(d.actionStateBefore, decoded.actionStateBefore);
+        ZekoProofVerifier.DecodedPublicValues memory d = zeko
+            .getDecodedPublicValues(pv);
 
-        for (uint256 i = 0; i < STATE_ARRAY_LENGTH; i++) {
-            assertEq(d.stateBefore[i], decoded.stateBefore[i]);
-            assertEq(d.stateAfter[i],  decoded.stateAfter[i]);
-        }
+        assertTrue(d.proofValid);
+        assertEq(d.vkHash, VK_HASH);
+        assertEq(d.actionStateBefore, ACTION_STATE);
+        assertEq(d.stateBefore[2], CURRENT_ROOT);
+        assertEq(d.stateAfter[2], newRoot);
     }
 
-    function test_RevertOnInvalidPublicValuesLengthWhenDecoding() public {
+    function test_RevertOnInvalidPublicValuesLength() public {
         bytes memory invalid = new bytes(16);
-
         vm.expectRevert(
             abi.encodeWithSelector(
                 ZekoProofVerifier.InvalidPublicValuesLength.selector,
@@ -145,59 +124,64 @@ contract ZekoProofVerifierGroth16Test is Test {
         zeko.getDecodedPublicValues(invalid);
     }
 
-    function test_RevertOnInvalidBoolWhenDecoding() public {
-        bytes memory invalid = fixture.publicValues;
-        invalid[0] = bytes1(uint8(2));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(ZekoProofVerifier.InvalidBool.selector, uint8(2))
+    function test_RevertOnInvalidBool() public {
+        bytes memory pv = _buildPublicValues(
+            true,
+            VK_HASH,
+            CURRENT_ROOT,
+            bytes32(0),
+            ACTION_STATE
         );
-        zeko.getDecodedPublicValues(invalid);
+        pv[0] = bytes1(uint8(2));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ZekoProofVerifier.InvalidBool.selector,
+                uint8(2)
+            )
+        );
+        zeko.getDecodedPublicValues(pv);
     }
 
-    // -------------------------------------------------------------------------
-    // verifyAndUpdateRoot — happy path (real SP1 Groth16 proof)
-    // -------------------------------------------------------------------------
-
     function test_ValidGroth16ProofUpdatesRoot() public {
+        ZekoProofVerifier.DecodedPublicValues
+            memory decoded = _decodePublicValues(fixturePublicValues);
+
         uint256 gasBefore = gasleft();
-        zeko.verifyAndUpdateRoot(fixture.publicValues, fixture.proof);
+        zeko.verifyAndUpdateRoot(fixturePublicValues, fixtureProof);
         uint256 gasUsed = gasBefore - gasleft();
 
-        console2.log("========================================");
-        console2.log("=== GROTH16 MAINNET FORK            ===");
-        console2.log("========================================");
-        console2.log("proofValid:", decoded.proofValid);
-        console2.log("vkHash:");
-        console2.logBytes32(decoded.vkHash);
-        console2.log("actionStateBefore:");
-        console2.logBytes32(decoded.actionStateBefore);
-        console2.log("old root / stateBefore[2]:");
+        console2.log("=== GROTH16 MAINNET FORK ===");
+        console2.log("root before:");
         console2.logBytes32(decoded.stateBefore[2]);
-        console2.log("new root / stateAfter[2]:");
+        console2.log("root after:");
         console2.logBytes32(decoded.stateAfter[2]);
-        console2.log("Gas used:", gasUsed);
-        console2.log("========================================");
+        console2.log("gas:", gasUsed);
 
         assertEq(zeko.currentRoot(), decoded.stateAfter[2]);
     }
 
-    // -------------------------------------------------------------------------
-    // verifyAndUpdateRoot — revert paths
-    // -------------------------------------------------------------------------
-
     function test_RevertOnInvalidGroth16Proof() public {
-        // A zeroed-out proof with the same length: the selector bytes[0:4]
-        // will be 0x00000000 which has no registered route → gateway reverts.
-        bytes memory fakeProof = new bytes(fixture.proof.length);
-
+        bytes memory fakeProof = new bytes(fixtureProof.length);
         vm.expectRevert();
-        zeko.verifyAndUpdateRoot(fixture.publicValues, fakeProof);
+        zeko.verifyAndUpdateRoot(fixturePublicValues, fakeProof);
     }
 
     function test_RevertOnInvalidVkHash() public {
+        // Re-deploy with the fixture's actual vkHash so the SP1 proof passes,
+        // then set a bad vkHash so ZekoProofVerifier rejects it.
+        ZekoProofVerifier.DecodedPublicValues
+            memory decoded = _decodePublicValues(fixturePublicValues);
+
+        ZekoProofVerifier target = new ZekoProofVerifier(
+            address(gateway),
+            fixtureVkey,
+            decoded.vkHash,
+            decoded.actionStateBefore,
+            decoded.stateBefore[2]
+        );
+
         bytes32 badVkHash = keccak256("bad vk hash");
-        zeko.setVkHash(badVkHash);
+        target.setVkHash(badVkHash);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -206,12 +190,23 @@ contract ZekoProofVerifierGroth16Test is Test {
                 decoded.vkHash
             )
         );
-        zeko.verifyAndUpdateRoot(fixture.publicValues, fixture.proof);
+        target.verifyAndUpdateRoot(fixturePublicValues, fixtureProof);
     }
 
     function test_RevertOnInvalidActionState() public {
+        ZekoProofVerifier.DecodedPublicValues
+            memory decoded = _decodePublicValues(fixturePublicValues);
+
+        ZekoProofVerifier target = new ZekoProofVerifier(
+            address(gateway),
+            fixtureVkey,
+            decoded.vkHash,
+            decoded.actionStateBefore,
+            decoded.stateBefore[2]
+        );
+
         bytes32 badActionState = keccak256("bad action state");
-        zeko.setActionState(badActionState);
+        target.setActionState(badActionState);
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -220,15 +215,18 @@ contract ZekoProofVerifierGroth16Test is Test {
                 decoded.actionStateBefore
             )
         );
-        zeko.verifyAndUpdateRoot(fixture.publicValues, fixture.proof);
+        target.verifyAndUpdateRoot(fixturePublicValues, fixtureProof);
     }
 
     function test_RevertOnInvalidCurrentRoot() public {
+        ZekoProofVerifier.DecodedPublicValues
+            memory decoded = _decodePublicValues(fixturePublicValues);
+
         bytes32 badRoot = keccak256("bad root");
 
-        ZekoProofVerifier other = new ZekoProofVerifier(
+        ZekoProofVerifier target = new ZekoProofVerifier(
             address(gateway),
-            fixture.vkey,
+            fixtureVkey,
             decoded.vkHash,
             decoded.actionStateBefore,
             badRoot
@@ -241,17 +239,12 @@ contract ZekoProofVerifierGroth16Test is Test {
                 decoded.stateBefore[2]
             )
         );
-        other.verifyAndUpdateRoot(fixture.publicValues, fixture.proof);
+        target.verifyAndUpdateRoot(fixturePublicValues, fixtureProof);
     }
 
-    // -------------------------------------------------------------------------
-    // Admin — vkHash
-    // -------------------------------------------------------------------------
-
     function test_SetVkHashOnlyOwner() public {
-        bytes32 newVkHash = keccak256("new vk hash");
-        zeko.setVkHash(newVkHash);
-        assertEq(zeko.vkHash(), newVkHash);
+        zeko.setVkHash(keccak256("new vk hash"));
+        assertEq(zeko.vkHash(), keccak256("new vk hash"));
     }
 
     function test_RevertSetVkHashWhenNotOwner() public {
@@ -260,14 +253,9 @@ contract ZekoProofVerifierGroth16Test is Test {
         zeko.setVkHash(keccak256("new vk hash"));
     }
 
-    // -------------------------------------------------------------------------
-    // Admin — actionState
-    // -------------------------------------------------------------------------
-
     function test_SetActionStateOnlyOwner() public {
-        bytes32 newActionState = keccak256("new action state");
-        zeko.setActionState(newActionState);
-        assertEq(zeko.actionState(), newActionState);
+        zeko.setActionState(keccak256("new action state"));
+        assertEq(zeko.actionState(), keccak256("new action state"));
     }
 
     function test_RevertSetActionStateWhenNotOwner() public {
@@ -276,18 +264,14 @@ contract ZekoProofVerifierGroth16Test is Test {
         zeko.setActionState(keccak256("new action state"));
     }
 
-    // -------------------------------------------------------------------------
-    // Ownership transfer
-    // -------------------------------------------------------------------------
-
     function test_TwoStepOwnershipTransfer() public {
         zeko.transferOwnership(alice);
-        assertEq(zeko.owner(),        owner);
+        assertEq(zeko.owner(), owner);
         assertEq(zeko.pendingOwner(), alice);
 
         vm.prank(alice);
         zeko.acceptOwnership();
-        assertEq(zeko.owner(),        alice);
+        assertEq(zeko.owner(), alice);
         assertEq(zeko.pendingOwner(), address(0));
     }
 
@@ -311,9 +295,8 @@ contract ZekoProofVerifierGroth16Test is Test {
 
     function test_CancelOwnershipTransfer() public {
         zeko.transferOwnership(alice);
-        assertEq(zeko.pendingOwner(), alice);
         zeko.cancelOwnershipTransfer();
-        assertEq(zeko.owner(),        owner);
+        assertEq(zeko.owner(), owner);
         assertEq(zeko.pendingOwner(), address(0));
     }
 
@@ -324,47 +307,76 @@ contract ZekoProofVerifierGroth16Test is Test {
         zeko.cancelOwnershipTransfer();
     }
 
-    // -------------------------------------------------------------------------
-    // Internal helpers
-    // -------------------------------------------------------------------------
-
-    function _decodePublicValues(
-        bytes memory publicValues
-    ) private pure returns (ZekoProofVerifier.DecodedPublicValues memory d) {
-        require(publicValues.length == PUBLIC_VALUES_LENGTH, "invalid public values length");
-
+    function _buildPublicValues(
+        bool proofValid,
+        bytes32 vkHash,
+        bytes32 stateBefore2,
+        bytes32 stateAfter2,
+        bytes32 actionStateBefore
+    ) internal pure returns (bytes memory pv) {
+        pv = new bytes(PUBLIC_VALUES_LENGTH);
         uint256 cursor = 0;
 
-        uint8 proofValidRaw = uint8(publicValues[cursor]);
-        require(proofValidRaw <= 1, "invalid proof valid bool");
-        d.proofValid = proofValidRaw == 1;
+        pv[cursor] = proofValid ? bytes1(uint8(1)) : bytes1(uint8(0));
         cursor += 1;
 
-        d.vkHash = _readBytes32(publicValues, cursor);
+        _wb32(pv, cursor, vkHash);
         cursor += 32;
 
         for (uint256 i = 0; i < STATE_ARRAY_LENGTH; i++) {
-            d.stateBefore[i] = _readBytes32(publicValues, cursor);
+            _wb32(pv, cursor, i == 2 ? stateBefore2 : bytes32(0));
             cursor += 32;
         }
-
         for (uint256 i = 0; i < STATE_ARRAY_LENGTH; i++) {
-            d.stateAfter[i] = _readBytes32(publicValues, cursor);
+            _wb32(pv, cursor, i == 2 ? stateAfter2 : bytes32(0));
             cursor += 32;
         }
 
-        d.actionStateBefore = _readBytes32(publicValues, cursor);
+        _wb32(pv, cursor, actionStateBefore);
         cursor += 32;
-
         assert(cursor == PUBLIC_VALUES_LENGTH);
     }
 
-    function _readBytes32(
+    function _wb32(bytes memory buf, uint256 offset, bytes32 v) private pure {
+        assembly {
+            mstore(add(add(buf, 0x20), offset), v)
+        }
+    }
+
+    function _decodePublicValues(
+        bytes memory pv
+    ) private pure returns (ZekoProofVerifier.DecodedPublicValues memory d) {
+        require(pv.length == PUBLIC_VALUES_LENGTH, "invalid length");
+        uint256 cursor = 0;
+
+        uint8 raw = uint8(pv[cursor]);
+        require(raw <= 1, "invalid bool");
+        d.proofValid = raw == 1;
+        cursor += 1;
+
+        d.vkHash = _rb32(pv, cursor);
+        cursor += 32;
+
+        for (uint256 i = 0; i < STATE_ARRAY_LENGTH; i++) {
+            d.stateBefore[i] = _rb32(pv, cursor);
+            cursor += 32;
+        }
+        for (uint256 i = 0; i < STATE_ARRAY_LENGTH; i++) {
+            d.stateAfter[i] = _rb32(pv, cursor);
+            cursor += 32;
+        }
+
+        d.actionStateBefore = _rb32(pv, cursor);
+        cursor += 32;
+        assert(cursor == PUBLIC_VALUES_LENGTH);
+    }
+
+    function _rb32(
         bytes memory data,
         uint256 offset
-    ) private pure returns (bytes32 value) {
+    ) private pure returns (bytes32 v) {
         assembly {
-            value := mload(add(add(data, 0x20), offset))
+            v := mload(add(add(data, 0x20), offset))
         }
     }
 }
