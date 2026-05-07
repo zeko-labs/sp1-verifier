@@ -19,7 +19,7 @@ contract ZekoProofVerifierGroth16Test is Test {
     // Current Zeko state — these live inside the SP1 public values, not the SP1 vkey.
     //
     // vk_hash          = Hash of the current Zeko verification key
-    // state_before[2]  = current account tree root
+    // state_before[3]  = current account tree root
     // action_state     = current action state hash
     bytes32 private constant VK_HASH =
         bytes32(
@@ -108,8 +108,8 @@ contract ZekoProofVerifierGroth16Test is Test {
         assertTrue(d.proofValid);
         assertEq(d.vkHash, VK_HASH);
         assertEq(d.actionStateBefore, ACTION_STATE);
-        assertEq(d.stateBefore[2], CURRENT_ROOT);
-        assertEq(d.stateAfter[2], newRoot);
+        assertEq(d.stateBefore[3], CURRENT_ROOT);
+        assertEq(d.stateAfter[3], newRoot);
     }
 
     function test_RevertOnInvalidPublicValuesLength() public {
@@ -152,12 +152,12 @@ contract ZekoProofVerifierGroth16Test is Test {
 
         console2.log("=== GROTH16 MAINNET FORK ===");
         console2.log("root before:");
-        console2.logBytes32(decoded.stateBefore[2]);
+        console2.logBytes32(decoded.stateBefore[3]);
         console2.log("root after:");
-        console2.logBytes32(decoded.stateAfter[2]);
+        console2.logBytes32(decoded.stateAfter[3]);
         console2.log("gas:", gasUsed);
 
-        assertEq(zeko.currentRoot(), decoded.stateAfter[2]);
+        assertEq(zeko.currentRoot(), decoded.stateAfter[3]);
     }
 
     function test_RevertOnInvalidGroth16Proof() public {
@@ -177,7 +177,7 @@ contract ZekoProofVerifierGroth16Test is Test {
             fixtureVkey,
             decoded.vkHash,
             decoded.actionStateBefore,
-            decoded.stateBefore[2]
+            decoded.stateBefore[3]
         );
 
         bytes32 badVkHash = keccak256("bad vk hash");
@@ -202,7 +202,7 @@ contract ZekoProofVerifierGroth16Test is Test {
             fixtureVkey,
             decoded.vkHash,
             decoded.actionStateBefore,
-            decoded.stateBefore[2]
+            decoded.stateBefore[3]
         );
 
         bytes32 badActionState = keccak256("bad action state");
@@ -236,7 +236,7 @@ contract ZekoProofVerifierGroth16Test is Test {
             abi.encodeWithSelector(
                 ZekoProofVerifier.InvalidCurrentRoot.selector,
                 badRoot,
-                decoded.stateBefore[2]
+                decoded.stateBefore[3]
             )
         );
         target.verifyAndUpdateRoot(fixturePublicValues, fixtureProof);
@@ -310,8 +310,8 @@ contract ZekoProofVerifierGroth16Test is Test {
     function _buildPublicValues(
         bool proofValid,
         bytes32 vkHash,
-        bytes32 stateBefore2,
-        bytes32 stateAfter2,
+        bytes32 stateBefore3,
+        bytes32 stateAfter3,
         bytes32 actionStateBefore
     ) internal pure returns (bytes memory pv) {
         pv = new bytes(PUBLIC_VALUES_LENGTH);
@@ -324,11 +324,11 @@ contract ZekoProofVerifierGroth16Test is Test {
         cursor += 32;
 
         for (uint256 i = 0; i < STATE_ARRAY_LENGTH; i++) {
-            _wb32(pv, cursor, i == 2 ? stateBefore2 : bytes32(0));
+            _wb32(pv, cursor, i == 3 ? stateBefore3 : bytes32(0));
             cursor += 32;
         }
         for (uint256 i = 0; i < STATE_ARRAY_LENGTH; i++) {
-            _wb32(pv, cursor, i == 2 ? stateAfter2 : bytes32(0));
+            _wb32(pv, cursor, i == 3 ? stateAfter3 : bytes32(0));
             cursor += 32;
         }
 

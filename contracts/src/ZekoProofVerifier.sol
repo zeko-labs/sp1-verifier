@@ -157,12 +157,12 @@ contract ZekoProofVerifier {
             revert InvalidActionState(actionState, decoded.actionStateBefore);
         }
 
-        if (decoded.stateBefore[2] != currentRoot) {
-            revert InvalidCurrentRoot(currentRoot, decoded.stateBefore[2]);
+        if (decoded.stateBefore[3] != currentRoot) {
+            revert InvalidCurrentRoot(currentRoot, decoded.stateBefore[3]);
         }
 
         bytes32 oldRoot = currentRoot;
-        bytes32 newRoot = decoded.stateAfter[2];
+        bytes32 newRoot = decoded.stateAfter[3];
 
         currentRoot = newRoot;
 
