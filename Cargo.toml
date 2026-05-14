@@ -1,7 +1,8 @@
 [workspace]
 members = [
     "lib",
-    "program",
+    "program/settlement",
+    "program/bridge",
     "script",
     "tools/generate-srs"
 ]

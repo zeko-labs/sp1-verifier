@@ -43,7 +43,7 @@ use ledger::{
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1;
 
-pub const ZKAPP_ELF: Elf = include_elf!("zkapp-program");
+pub const ZKAPP_ELF: Elf = include_elf!("settlement-program");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

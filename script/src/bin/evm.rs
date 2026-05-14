@@ -46,7 +46,7 @@ use ledger::{
 };
 
 /// The ELF for the zkApp SP1 program.
-pub const ZKAPP_ELF: Elf = include_elf!("zkapp-program");
+pub const ZKAPP_ELF: Elf = include_elf!("settlement-program");
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

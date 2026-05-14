@@ -78,10 +78,10 @@ fn main() {
     // ------------------------------------------------------------------
     // 5. Write single file to program/src/
     // ------------------------------------------------------------------
-    std::fs::create_dir_all("program/src").expect("create program/src");
+    std::fs::create_dir_all("program/settlement/src").expect("create program/settlement/src");
     std::fs::write("program/src/srs_rkyv.bin", &rkyv_bytes).expect("write srs_rkyv.bin");
 
     println!("✓ srs_rkyv.bin: {} bytes", rkyv_bytes.len());
-    println!("Done — commit program/src/srs_rkyv.bin to the repo.");
+    println!("Done — commit program/settlement/src/srs_rkyv.bin to the repo.");
     println!("You can now delete: srs_pallas.bin, lagrange_bases.bin, domain_size.bin");
 }

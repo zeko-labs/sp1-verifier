@@ -1,6 +1,6 @@
 [package]
 version = "0.1.0"
-name = "zkapp-program"
+name = "settlement-program"
 edition = "2021"
 
 [dependencies]
@@ -13,7 +13,7 @@ mina-curves       = { workspace = true, default-features = false  }
 mina-p2p-messages = { workspace = true, default-features = false }
 ark-ff            = { workspace = true }
 serde             = { workspace = true }
-zeko_sp1_lib      = { path = "../lib" }
+zeko_sp1_lib      = { path = "../../lib" }
 kimchi            = { workspace = true, features =[] }
 mina-poseidon     = { workspace = true, features =[] }
 poly-commitment   = { workspace = true }
