@@ -3,6 +3,7 @@ use sp1_sdk::{
     blocking::{ProveRequest, Prover, ProverClient},
     include_elf, Elf, HashableKey, ProvingKey, SP1Stdin,
 };
+//  cargo run --release --bin bridge -- --execute
 use std::time::Instant;
 use zeko_sp1_lib::{BridgeTransitionInput, BridgeTransitionPublicValues};
 
@@ -67,8 +68,14 @@ fn main() {
             "  zeko_action_after    : 0x{}",
             hex::encode(public_values.zeko_action_state_after)
         );
-        println!("  nonce_before         : {}", public_values.ethereum_nonce_before);
-        println!("  nonce_after          : {}", public_values.ethereum_nonce_after);
+        println!(
+            "  nonce_before         : {}",
+            public_values.ethereum_nonce_before
+        );
+        println!(
+            "  nonce_after          : {}",
+            public_values.ethereum_nonce_after
+        );
         println!("  deposit_count        : {}", public_values.deposit_count);
     } else {
         let pk = client.setup(BRIDGE_ELF).expect("failed to setup ELF");
