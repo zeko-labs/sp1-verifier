@@ -1,9 +1,19 @@
+//! Zeko SP1 — Bridge proof verifier
+//!
+//! Execute (no proof):
+//! ```shell
+//! RUST_LOG=info cargo run --release --bin bridge  -- --execute
+//! ```
+//! Prove (local core proof):
+//! ```shell
+//! RUST_LOG=info cargo run --release --bin bridge  -- --prove
+//! ```
+
 use clap::Parser;
 use sp1_sdk::{
     blocking::{ProveRequest, Prover, ProverClient},
     include_elf, Elf, HashableKey, ProvingKey, SP1Stdin,
 };
-//  cargo run --release --bin bridge -- --execute
 use std::time::Instant;
 use zeko_sp1_lib::{BridgeTransitionInput, BridgeTransitionPublicValues};
 
@@ -38,7 +48,8 @@ fn main() {
     let mut stdin = SP1Stdin::new();
     stdin.write(&input);
 
-    let client = ProverClient::from_env();
+    // Force the local prover for bridge proofs, even if network prover env vars are set.
+    let client = ProverClient::builder().cpu().build();
 
     if args.execute {
         let (output, report) = client
