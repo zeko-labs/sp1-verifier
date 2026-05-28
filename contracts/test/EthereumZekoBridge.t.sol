@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {EthereumZekoBridge} from "../src/EthereumZekoBridge.sol";
+import {ZekoAddress, ZekoAddressLib} from "../src/ZekoAddress.sol";
 
 contract TestERC20 is ERC20 {
     uint8 private immutable _decimals;
@@ -27,6 +28,9 @@ contract TestERC20 is ERC20 {
 }
 
 contract EthereumZekoBridgeTest is Test {
+    uint256 private constant ZEKO_FIELD_ORDER =
+        28948022309329048855892746252171976963363056481941560715954676764349967630337;
+
     EthereumZekoBridge internal bridge;
     TestERC20 internal token18;
     TestERC20 internal token6;
@@ -148,7 +152,7 @@ contract EthereumZekoBridgeTest is Test {
 
         uint256 amount = 2 ether;
         uint64 timeout = 123456;
-        bytes memory recipient = hex"01020304";
+        ZekoAddress recipient = ZekoAddressLib.pack(0x01020304, false);
 
         vm.startPrank(alice);
         token18.approve(address(bridge), amount);
@@ -160,14 +164,13 @@ contract EthereumZekoBridgeTest is Test {
         );
         vm.stopPrank();
 
-        bytes32 recipientHash = keccak256(recipient);
         bytes32 expectedLeaf = keccak256(
             abi.encode(
                 bridge.DEPOSIT_LEAF_DOMAIN(),
                 block.chainid,
                 address(bridge),
                 address(token18),
-                recipientHash,
+                recipient,
                 2 * 10 ** 9,
                 timeout,
                 uint64(1)
@@ -183,7 +186,7 @@ contract EthereumZekoBridgeTest is Test {
     function test_DepositETH_UsesNativeTokenConfig() public {
         uint256 amount = 3 ether;
         uint64 timeout = 777;
-        bytes memory recipient = hex"deadbeef";
+        ZekoAddress recipient = ZekoAddressLib.pack(0xdeadbeef, true);
 
         vm.deal(alice, amount);
         vm.prank(alice);
@@ -197,7 +200,7 @@ contract EthereumZekoBridgeTest is Test {
                 block.chainid,
                 address(bridge),
                 address(0),
-                keccak256(recipient),
+                recipient,
                 3 * 10 ** 9,
                 timeout,
                 uint64(1)
@@ -223,7 +226,7 @@ contract EthereumZekoBridgeTest is Test {
                 uint8(9)
             )
         );
-        bridge.depositETH{value: 1 ether + 1}(hex"01", 1);
+        bridge.depositETH{value: 1 ether + 1}(ZekoAddressLib.pack(1, false), 1);
     }
 
     function test_Deposit_RevertsWhenPrecisionDoesNotFitZekoDecimals() public {
@@ -240,7 +243,7 @@ contract EthereumZekoBridgeTest is Test {
                 uint8(9)
             )
         );
-        bridge.deposit(address(token18), 1 ether + 1, hex"01", 99);
+        bridge.deposit(address(token18), 1 ether + 1, ZekoAddressLib.pack(1, false), 99);
         vm.stopPrank();
     }
 
@@ -249,7 +252,7 @@ contract EthereumZekoBridgeTest is Test {
 
         uint256 amount = 25 * 10 ** 6;
         uint64 timeout = 88;
-        bytes memory recipient = hex"1234";
+        ZekoAddress recipient = ZekoAddressLib.pack(0x1234, false);
 
         vm.startPrank(alice);
         token6.approve(address(bridge), amount);
@@ -267,7 +270,7 @@ contract EthereumZekoBridgeTest is Test {
                 block.chainid,
                 address(bridge),
                 address(token6),
-                keccak256(recipient),
+                recipient,
                 25 * 10 ** 9,
                 timeout,
                 uint64(1)
@@ -275,5 +278,12 @@ contract EthereumZekoBridgeTest is Test {
         );
 
         assertEq(leaf, expectedLeaf);
+    }
+
+    function test_ComputeDepositLeaf_RevertsOnInvalidZekoAddress() public {
+        ZekoAddress invalid = ZekoAddress.wrap(ZEKO_FIELD_ORDER);
+
+        vm.expectRevert(ZekoAddressLib.InvalidZekoField.selector);
+        bridge.computeDepositLeaf(address(token18), invalid, 1, 1, 1);
     }
 }
