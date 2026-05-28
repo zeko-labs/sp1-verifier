@@ -6,7 +6,6 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {ZekoAddress, ZekoAddressLib} from "./ZekoAddress.sol";
 
 /// @title EthereumZekoBridge
 /// @notice Ethereum-side bridge contract for Zeko.
@@ -15,7 +14,6 @@ import {ZekoAddress, ZekoAddressLib} from "./ZekoAddress.sol";
 ///      newDepositState = keccak256(DEPOSIT_STATE_DOMAIN, oldDepositState, depositLeaf)
 contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
-    using ZekoAddressLib for ZekoAddress;
 
     // -------------------------------------------------------------------------
     // Errors
@@ -23,6 +21,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
 
     error ZeroAddress();
     error ZeroAmount();
+    error EmptyZekoRecipient();
     error FeeOnTransferTokenNotSupported();
     error TokenNotAllowed(address token);
     error InvalidCheckpointNonce(uint64 nonce);
@@ -73,7 +72,8 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         bytes32 oldDepositState,
         address token,
         address sender,
-        ZekoAddress zekoRecipient,
+        bytes zekoRecipient,
+        bytes32 zekoRecipientHash,
         uint256 amount
     );
 
@@ -136,15 +136,16 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     /// @notice Deposits ERC20 tokens and appends a deposit leaf to the bridge accumulator.
     /// @param token ERC20 token address.
     /// @param amount Token amount to lock on Ethereum.
-    /// @param zekoRecipient Packed Zeko recipient address.
+    /// @param zekoRecipient Encoded Zeko recipient. The exact format must be defined by your protocol.
     function deposit(
         address token,
         uint256 amount,
-        ZekoAddress zekoRecipient
+        bytes calldata zekoRecipient
     ) external nonReentrant whenNotPaused returns (uint64 nonce, bytes32 depositLeaf, bytes32 newDepositState) {
         if (token == address(0)) revert ZeroAddress();
         if (!allowedToken[token]) revert TokenNotAllowed(token);
         if (amount == 0) revert ZeroAmount();
+        if (zekoRecipient.length == 0) revert EmptyZekoRecipient();
 
         // Transfer first so fee-on-transfer tokens can be rejected by balance delta.
         // For a strict bridge, the received amount must equal the requested amount.
@@ -158,12 +159,12 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         nonce = depositNonce + 1;
 
         bytes32 oldDepositState = currentDepositState;
-        zekoRecipient.unpack();
+        bytes32 zekoRecipientHash = keccak256(zekoRecipient);
 
         depositLeaf = computeDepositLeaf({
             token: token,
             sender: msg.sender,
-            zekoRecipient: zekoRecipient,
+            zekoRecipientHash: zekoRecipientHash,
             amount: amount,
             nonce: nonce
         });
@@ -183,6 +184,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
             token: token,
             sender: msg.sender,
             zekoRecipient: zekoRecipient,
+            zekoRecipientHash: zekoRecipientHash,
             amount: amount
         });
     }
@@ -209,12 +211,10 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     function computeDepositLeaf(
         address token,
         address sender,
-        ZekoAddress zekoRecipient,
+        bytes32 zekoRecipientHash,
         uint256 amount,
         uint64 nonce
     ) public view returns (bytes32) {
-        zekoRecipient.unpack();
-
         return keccak256(
             abi.encode(
                 DEPOSIT_LEAF_DOMAIN,
@@ -222,7 +222,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
                 address(this),
                 token,
                 sender,
-                zekoRecipient,
+                zekoRecipientHash,
                 amount,
                 nonce
             )
