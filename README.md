@@ -1,3 +1,148 @@
+# Zeko SP1 Verifier
+
+This repository contains SP1 programs and Ethereum contracts used to settle Zeko state transitions on Ethereum.
+
+The project has two verification paths:
+
+- **Settlement circuit**: verifies a Zeko/o1 proof for a zkApp command and commits the rollup state transition that Ethereum should accept.
+- **Bridge circuit**: verifies the Ethereum-to-Zeko bridge transition by replaying deposits, updating the Ethereum deposit accumulator, and computing the Zeko action state expected by the Zeko bridge account.
+
+The goal is to let Ethereum verify succinct SP1 proofs instead of directly verifying the full Zeko/o1 proof system or re-executing bridge action-state logic on-chain.
+
+## Documentation
+
+GitHub Pages documentation lives in [`docs/index.md`](docs/index.md).
+
+To publish it with GitHub Pages, configure the repository Pages source to:
+
+- Source: `Deploy from a branch`
+- Branch: your deployment branch
+- Folder: `/docs`
+
+## Repository Layout
+
+| Path | Purpose |
+| --- | --- |
+| `program/settlement` | SP1 guest program that verifies a Zeko/o1 proof and extracts canonical settlement public values. |
+| `program/bridge` | SP1 guest program that verifies bridge deposits and computes Ethereum/Zeko accumulator transitions. |
+| `lib` | Shared Rust input/output types used by guests and host scripts. |
+| `script` | Host-side proof generation and execution binaries. |
+| `contracts/src/ZekoProofVerifier.sol` | Ethereum verifier wrapper for settlement proofs. |
+| `contracts/src/EthereumZekoBridge.sol` | Ethereum-side bridge contract that records deposits. |
+| `tools/zeko-action-state` | o1js fixture that reproduces Zeko action-state updates for bridge deposits. |
+| `proofs/bridge-input.json` | Example bridge input fixture. |
+
+## Settlement Circuit
+
+The settlement program in `program/settlement` verifies a Zeko/o1 proof inside SP1.
+
+At a high level it:
+
+1. Reads the Zeko verification key, o1 proof, zkApp statement, zkApp command, deferred values, and verifier index.
+2. Rebuilds the verifier index with the embedded SRS.
+3. Checks that the zkApp command is bound to the statement being verified.
+4. Runs Kimchi verification for the supplied proof.
+5. Extracts public values from the first account update:
+   - proof validity flag
+   - verification-key hash
+   - zkApp state before
+   - zkApp state after
+   - action state before
+6. Commits those public values as SP1 public output.
+
+On Ethereum, `ZekoProofVerifier.sol` verifies the SP1 proof and checks that the public output matches the verifier contract's tracked state:
+
+- `vkHash` must match the expected Zeko verification key hash.
+- `actionStateBefore` must match the verifier's stored action state.
+- `stateBefore[3]` must match the verifier's current root.
+- `stateAfter[3]` becomes the new root.
+
+This contract currently updates the settlement root. It stores action state as a guard input but does not derive a new action state from the settlement proof output.
+
+## Bridge Circuit
+
+The bridge program in `program/bridge` proves that a batch of Ethereum deposits maps to the expected Zeko action-state transition.
+
+For each deposit, the program:
+
+1. Validates and unpacks the packed `ZekoAddress` into `(x, isOdd)`.
+2. Converts the deposit amount into the Zeko amount field.
+3. Computes the Ethereum deposit leaf:
+
+```text
+keccak256(
+  ZEKO_BRIDGE_DEPOSIT_LEAF_V1,
+  chain_id,
+  bridge_address,
+  token,
+  zeko_recipient,
+  zeko_amount,
+  timeout,
+  nonce
+)
+```
+
+4. Updates the Ethereum deposit accumulator:
+
+```text
+keccak256(
+  ZEKO_BRIDGE_DEPOSIT_STATE_V1,
+  previous_deposit_state,
+  deposit_leaf
+)
+```
+
+5. Computes the Zeko deposit action:
+
+```text
+Poseidon.hashWithPrefix("Deposit_params - qFB3jXP*)", [
+  Field(0),
+  holderAccountL1,
+  zekoAmount,
+  recipient.x,
+  recipient.isOdd,
+  timeout
+])
+```
+
+6. Adds that action to the Zeko action-state sequence using the same Poseidon update semantics as o1js.
+
+The bridge public output includes:
+
+- Ethereum deposit state before/after
+- Ethereum nonce before/after
+- Zeko action state before/after
+- per-deposit resolved data, including deposit leaf and action hashes
+
+The `tools/zeko-action-state` fixture deploys a local o1js contract and dispatches the same deposit actions, so the SP1 bridge output can be compared against a real action-state update.
+
+## Running The Bridge Fixture
+
+Execute the bridge program without proving:
+
+```sh
+cargo run --release --bin bridge -- --execute
+```
+
+Run the o1js action-state fixture:
+
+```sh
+cd tools/zeko-action-state
+npm install
+npm start
+```
+
+Current fixture output for three deposits:
+
+```text
+zeko_action_before: 0x3772bc5435b957f81f86f752e93f2e29e886ac24580b3d1ec879c1dad26965f9
+zeko_action_after : 0x3d638b908c4241e7b417d1790a79d0fe3277a133a5a87e12a484cd756de795bf
+nonce_after       : 3
+deposit_count     : 3
+```
+
+## Legacy SP1 Template Notes
+
 # SP1 Project Template
 
 This is a template for creating an end-to-end [SP1](https://github.com/succinctlabs/sp1) project
