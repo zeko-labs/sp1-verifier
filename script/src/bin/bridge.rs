@@ -3,6 +3,7 @@
 //! Execute (no proof):
 //! ```shell
 //! RUST_LOG=info cargo run --release --bin bridge  -- --execute
+//! cargo run --release --bin bridge -- --execute --input proofs/bridge-input-200.json
 //! ```
 //! Prove (local core proof):
 //! ```shell
