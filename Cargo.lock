@@ -12330,6 +12330,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "withdraw-program"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives 0.8.20",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "bytemuck",
+ "mina-curves",
+ "mina-poseidon",
+ "serde",
+ "sp1-lib",
+ "sp1-zkvm",
+ "zeko_sp1_lib",
+]
+
+[[package]]
 name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"

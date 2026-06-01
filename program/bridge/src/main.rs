@@ -17,7 +17,6 @@ fn main() {
     let input: BridgeTransitionInput = sp1_zkvm::io::read();
 
     let mut ethereum_state = input.ethereum.deposit_state;
-    let mut ethereum_withdraw_state = input.ethereum.withdraw_state;
     let mut zeko_action_state = fp_from_bytes(input.zeko.action_state);
     let mut next_nonce = input.ethereum.deposit_nonce;
 
@@ -53,24 +52,6 @@ fn main() {
         zeko_action_state = merkle_actions_add(zeko_action_state, zeko_action_list_hash);
     }
 
-    for withdraw in &input.withdraws {
-        let ethereum_withdraw_leaf = compute_ethereum_withdraw_leaf(
-            input.ethereum.chain_id,
-            input.ethereum.bridge_address,
-            withdraw.token,
-            withdraw.recipient,
-            withdraw.amount,
-        );
-
-        ethereum_withdraw_state =
-            compute_ethereum_withdraw_state(ethereum_withdraw_state, ethereum_withdraw_leaf);
-
-        let zeko_action_hash =
-            compute_zeko_withdraw_action_hash(withdraw.recipient, withdraw.amount);
-        let zeko_action_list_hash = action_list_add(empty_action_list_hash, zeko_action_hash);
-        zeko_action_state = merkle_actions_add(zeko_action_state, zeko_action_list_hash);
-    }
-
     sp1_zkvm::io::commit(&BridgeTransitionPublicValues {
         ethereum_state_before: input.ethereum.deposit_state,
         ethereum_state_after: ethereum_state,
@@ -78,10 +59,7 @@ fn main() {
         ethereum_nonce_after: next_nonce,
         zeko_action_state_before: fp_to_bytes(fp_from_bytes(input.zeko.action_state)),
         zeko_action_state_after: fp_to_bytes(zeko_action_state),
-        ethereum_withdraw_state_before: input.ethereum.withdraw_state,
-        ethereum_withdraw_state_after: ethereum_withdraw_state,
         deposit_count: input.deposits.len() as u32,
-        withdraw_count: input.withdraws.len() as u32,
     });
 }
 
@@ -114,31 +92,6 @@ fn compute_ethereum_state(previous_state: Bytes32, deposit_leaf: Bytes32) -> Byt
     keccak256(encoded).0
 }
 
-fn compute_ethereum_withdraw_leaf(
-    chain_id: u64,
-    bridge_address: Address,
-    token: Bytes32,
-    recipient: Bytes32,
-    amount: Bytes32,
-) -> Bytes32 {
-    let mut encoded = Vec::with_capacity(32 * 6);
-    encoded.extend_from_slice(&keccak256("ZEKO_BRIDGE_WITHDRAW_LEAF_V1".as_bytes()).0);
-    encoded.extend_from_slice(&u64_word(chain_id));
-    encoded.extend_from_slice(&address_word(bridge_address));
-    encoded.extend_from_slice(&token);
-    encoded.extend_from_slice(&recipient);
-    encoded.extend_from_slice(&amount);
-    keccak256(encoded).0
-}
-
-fn compute_ethereum_withdraw_state(previous_state: Bytes32, withdraw_leaf: Bytes32) -> Bytes32 {
-    let mut encoded = Vec::with_capacity(96);
-    encoded.extend_from_slice(&keccak256("ZEKO_BRIDGE_WITHDRAW_STATE_V1".as_bytes()).0);
-    encoded.extend_from_slice(&previous_state);
-    encoded.extend_from_slice(&withdraw_leaf);
-    keccak256(encoded).0
-}
-
 fn compute_zeko_action_hash(
     holder_account_l1: Address,
     zeko_amount: U256,
@@ -155,15 +108,6 @@ fn compute_zeko_action_hash(
     fields.push(Fp::from(timeout));
 
     hash_with_prefix("Deposit_params - qFB3jXP*)", &fields)
-}
-
-fn compute_zeko_withdraw_action_hash(recipient: Bytes32, amount: Bytes32) -> Fp {
-    let mut fields = Vec::with_capacity(3);
-    fields.push(Fp::from(1u8));
-    fields.push(fp_from_bytes(amount));
-    fields.push(fp_from_bytes(recipient));
-
-    hash_with_prefix("Withdrawal_params - qFB3jXP*)", &fields)
 }
 
 fn action_list_add(hash: Fp, action: Fp) -> Fp {

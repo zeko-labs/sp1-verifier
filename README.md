@@ -6,6 +6,7 @@ The project has two verification paths:
 
 - **Settlement circuit**: verifies a Zeko/o1 proof for a zkApp command and commits the rollup state transition that Ethereum should accept.
 - **Bridge circuit**: verifies the Ethereum-to-Zeko bridge transition by replaying deposits, updating the Ethereum deposit accumulator, and computing the Zeko action state expected by the Zeko bridge account.
+- **Withdraw circuit**: verifies the Zeko-to-Ethereum withdraw transition by replaying withdrawals, updating the Ethereum withdraw accumulator, and computing the Zeko action state for the withdraw batch.
 
 The goal is to let Ethereum verify succinct SP1 proofs instead of directly verifying the full Zeko/o1 proof system or re-executing bridge action-state logic on-chain.
 
@@ -24,13 +25,17 @@ To publish it with GitHub Pages, configure the repository Pages source to:
 | Path | Purpose |
 | --- | --- |
 | `program/settlement` | SP1 guest program that verifies a Zeko/o1 proof and extracts canonical settlement public values. |
-| `program/bridge` | SP1 guest program that verifies bridge deposits and computes Ethereum/Zeko accumulator transitions. |
+| `program/bridge` | SP1 guest program that verifies bridge deposits and computes Ethereum/Zeko deposit accumulator transitions. |
+| `program/withdraw` | SP1 guest program that verifies bridge withdrawals and computes Ethereum/Zeko withdraw accumulator transitions. |
 | `lib` | Shared Rust input/output types used by guests and host scripts. |
 | `script` | Host-side proof generation and execution binaries. |
-| `contracts/src/ZekoProofVerifier.sol` | Ethereum verifier wrapper for settlement proofs. |
-| `contracts/src/EthereumZekoBridge.sol` | Ethereum-side bridge contract that records deposits. |
+| `contracts/src/ZekoSettlement.sol` | Ethereum verifier wrapper for settlement proofs. |
+| `contracts/src/EthereumZekoBridge.sol` | Ethereum-side bridge contract that records deposits and accepts withdraw states. |
 | `tools/zeko-action-state` | o1js fixture that reproduces Zeko action-state updates for bridge deposits. |
 | `proofs/bridge-input.json` | Example bridge input fixture. |
+| `proofs/bridge-input-200.json` | Bridge input fixture with 200 deposits. |
+| `proofs/withdraw-input.json` | Withdraw input fixture with 3 withdrawals. |
+| `proofs/withdraw-input-200.json` | Withdraw input fixture with 200 withdrawals. |
 
 ## Settlement Circuit
 
@@ -61,7 +66,7 @@ This contract currently updates the settlement root. It stores action state as a
 
 ## Bridge Circuit
 
-The bridge program in `program/bridge` proves that a batch of Ethereum deposits maps to the expected Zeko action-state transition.
+The bridge program in `program/bridge` proves that a batch of Ethereum deposits maps to the expected Zeko action-state transition. It is deposit-only; withdrawals are handled by `program/withdraw`.
 
 For each deposit, the program:
 
@@ -112,7 +117,54 @@ The bridge public output includes:
 - Ethereum deposit state before/after
 - Ethereum nonce before/after
 - Zeko action state before/after
-- per-deposit resolved data, including deposit leaf and action hashes
+- deposit count
+
+## Withdraw Circuit
+
+The withdraw program in `program/withdraw` proves that a batch of Zeko withdrawals maps to the expected Ethereum withdraw accumulator and Zeko action-state transition.
+
+For each withdraw, the program:
+
+1. Computes the Ethereum withdraw leaf:
+
+```text
+keccak256(
+  ZEKO_BRIDGE_WITHDRAW_LEAF_V1,
+  chain_id,
+  bridge_address,
+  token,
+  recipient,
+  amount
+)
+```
+
+2. Updates the Ethereum withdraw accumulator:
+
+```text
+keccak256(
+  ZEKO_BRIDGE_WITHDRAW_STATE_V1,
+  previous_withdraw_state,
+  withdraw_leaf
+)
+```
+
+3. Computes the Zeko withdraw action:
+
+```text
+Poseidon.hashWithPrefix("Withdrawal_params - qFB3jXP*)", [
+  Field(0),
+  amount,
+  recipient
+])
+```
+
+4. Adds that action to the Zeko action-state sequence.
+
+The withdraw public output includes:
+
+- Zeko action state before/after
+- Ethereum withdraw state before/after
+- withdraw count
 
 The `tools/zeko-action-state` fixture deploys a local o1js contract and dispatches the same deposit actions, so the SP1 bridge output can be compared against a real action-state update.
 
@@ -122,6 +174,24 @@ Execute the bridge program without proving:
 
 ```sh
 cargo run --release --bin bridge -- --execute
+```
+
+Execute the 200-deposit bridge fixture:
+
+```sh
+cargo run --release --bin bridge -- --execute --input proofs/bridge-input-200.json
+```
+
+Execute the withdraw program without proving:
+
+```sh
+cargo run --release --bin withdraw -- --execute
+```
+
+Execute the 200-withdraw fixture:
+
+```sh
+cargo run --release --bin withdraw -- --execute --input proofs/withdraw-input-200.json
 ```
 
 Run the o1js action-state fixture:
@@ -176,6 +246,13 @@ Bridge proof
 ```sh
 cd script
 RUST_LOG=info cargo run --release --bin bridge  -- --execute
+```
+
+Withdraw proof
+
+```sh
+cd script
+RUST_LOG=info cargo run --release --bin withdraw -- --execute
 ```
 
 This will execute the program and display the output.

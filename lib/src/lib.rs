@@ -179,7 +179,6 @@ pub struct BridgeTransitionInput {
     pub ethereum: EthereumBridgeState,
     pub zeko: ZekoBridgeState,
     pub deposits: Vec<BridgeDeposit>,
-    pub withdraws: Vec<BridgeWithdraw>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -194,11 +193,26 @@ pub struct BridgeTransitionPublicValues {
     pub zeko_action_state_before: Bytes32,
     #[serde(with = "serde_bytes32")]
     pub zeko_action_state_after: Bytes32,
+    pub deposit_count: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WithdrawTransitionInput {
+    pub ethereum: EthereumBridgeState,
+    pub zeko: ZekoBridgeState,
+    pub withdraws: Vec<BridgeWithdraw>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+pub struct WithdrawTransitionPublicValues {
+    #[serde(with = "serde_bytes32")]
+    pub zeko_action_state_before: Bytes32,
+    #[serde(with = "serde_bytes32")]
+    pub zeko_action_state_after: Bytes32,
     #[serde(with = "serde_bytes32")]
     pub ethereum_withdraw_state_before: Bytes32,
     #[serde(with = "serde_bytes32")]
     pub ethereum_withdraw_state_after: Bytes32,
-    pub deposit_count: u32,
     pub withdraw_count: u32,
 }
 

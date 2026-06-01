@@ -20,6 +20,10 @@ interface IZekoSettlementVerifier {
     function isActionStateValid(
         bytes32 actionState
     ) external view returns (bool);
+
+    function l2ActionStateInfo(
+        bytes32 actionState
+    ) external view returns (uint64 index, bool valid);
 }
 
 /// @title EthereumZekoBridge
@@ -52,6 +56,10 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     error TokenAlreadyAdded(address token);
     error TokenNotAdded(address token);
     error InvalidSettlementActionState(bytes32 actionState);
+    error InvalidL2ActionStateTransition(
+        bytes32 oldActionState,
+        bytes32 newActionState
+    );
     error ActionStateAlreadyProcessed(bytes32 actionState);
     error InvalidBridgePublicValuesLength(uint256 expected, uint256 actual);
     error InvalidDepositState(bytes32 expected, bytes32 actual);
@@ -84,7 +92,8 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     bytes32 public constant WITHDRAW_NULLIFIER_DOMAIN =
         keccak256("ZEKO_BRIDGE_WITHDRAW_NULLIFIER_V1");
 
-    uint256 private constant BRIDGE_PUBLIC_VALUES_LENGTH = 216;
+    uint256 private constant BRIDGE_PUBLIC_VALUES_LENGTH = 148;
+    uint256 private constant WITHDRAW_PUBLIC_VALUES_LENGTH = 132;
 
     uint8 public constant MAX_ZEKO_DECIMALS = 9;
     uint8 public constant NATIVE_ETHEREUM_DECIMALS = 18;
@@ -111,9 +120,14 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         uint64 ethereumNonceAfter;
         bytes32 zekoActionStateBefore;
         bytes32 zekoActionStateAfter;
+        uint32 depositCount;
+    }
+
+    struct DecodedWithdrawPublicValues {
+        bytes32 zekoActionStateBefore;
+        bytes32 zekoActionStateAfter;
         bytes32 ethereumWithdrawStateBefore;
         bytes32 ethereumWithdrawStateAfter;
-        uint32 depositCount;
         uint32 withdrawCount;
     }
 
@@ -130,6 +144,9 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     /// @notice Current Ethereum withdraw accumulator state.
     bytes32 public currentWithdrawState;
 
+    /// @notice L2 action-state index matched by the current withdraw accumulator.
+    uint64 public currentWithdrawActionStateIndex;
+
     /// @notice Historical deposit state by nonce.
     /// @dev depositStateByNonce[0] is INITIAL_DEPOSIT_STATE.
     mapping(uint64 => bytes32) public depositStateByNonce;
@@ -140,8 +157,9 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     /// @notice Withdraw states accepted through a settlement action-state checkpoint.
     mapping(bytes32 => bool) public validWithdrawState;
 
-    /// @notice Old Zeko action state for an accepted withdraw state.
+    /// @notice Old Zeko action state/index for an accepted withdraw state.
     mapping(bytes32 => bytes32) public withdrawStateOldActionState;
+    mapping(bytes32 => uint64) public withdrawStateOldActionStateIndex;
 
     /// @notice Claimed withdraw nullifiers.
     mapping(bytes32 => bool) public spentWithdraw;
@@ -155,6 +173,8 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     IZekoSettlementVerifier public immutable settlementVerifier;
     ISP1Verifier public immutable bridgeVerifier;
     bytes32 public immutable bridgeProgramVKey;
+    ISP1Verifier public immutable withdrawVerifier;
+    bytes32 public immutable withdrawProgramVKey;
 
     // -------------------------------------------------------------------------
     // Events
@@ -219,15 +239,20 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         address initialOwner,
         address settlementVerifier_,
         address bridgeVerifier_,
-        bytes32 bridgeProgramVKey_
+        bytes32 bridgeProgramVKey_,
+        address withdrawVerifier_,
+        bytes32 withdrawProgramVKey_
     ) Ownable(initialOwner) {
         if (initialOwner == address(0)) revert ZeroAddress();
         if (settlementVerifier_ == address(0)) revert ZeroAddress();
         if (bridgeVerifier_ == address(0)) revert ZeroAddress();
+        if (withdrawVerifier_ == address(0)) revert ZeroAddress();
 
         settlementVerifier = IZekoSettlementVerifier(settlementVerifier_);
         bridgeVerifier = ISP1Verifier(bridgeVerifier_);
         bridgeProgramVKey = bridgeProgramVKey_;
+        withdrawVerifier = ISP1Verifier(withdrawVerifier_);
+        withdrawProgramVKey = withdrawProgramVKey_;
         currentDepositState = INITIAL_DEPOSIT_STATE;
         currentWithdrawState = bytes32(0);
         depositStateByNonce[0] = INITIAL_DEPOSIT_STATE;
@@ -485,7 +510,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
 
     /// @notice Computes the nullifier consumed when a withdraw is claimed.
     function computeWithdrawNullifier(
-        bytes32 oldActionState,
+        uint64 oldActionStateIndex,
         uint256 withdrawIndex,
         bytes32 withdrawLeaf
     ) public view returns (bytes32) {
@@ -495,7 +520,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
                     WITHDRAW_NULLIFIER_DOMAIN,
                     block.chainid,
                     address(this),
-                    oldActionState,
+                    oldActionStateIndex,
                     withdrawIndex,
                     withdrawLeaf
                 )
@@ -542,18 +567,64 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
                 decoded.ethereumNonceAfter
             );
         }
+        if (processedActionState[decoded.zekoActionStateAfter]) {
+            revert ActionStateAlreadyProcessed(decoded.zekoActionStateAfter);
+        }
+
+        processedActionState[decoded.zekoActionStateAfter] = true;
+
+        emit BridgeTransitionAccepted(
+            decoded.zekoActionStateBefore,
+            decoded.zekoActionStateAfter,
+            decoded.ethereumStateAfter,
+            currentWithdrawState,
+            decoded.ethereumNonceAfter
+        );
+    }
+
+    function submitWithdrawTransition(
+        bytes calldata publicValues,
+        bytes calldata proofBytes
+    ) external whenNotPaused {
+        withdrawVerifier.verifyProof(
+            withdrawProgramVKey,
+            publicValues,
+            proofBytes
+        );
+
+        DecodedWithdrawPublicValues memory decoded = decodeWithdrawPublicValues(
+            publicValues
+        );
+
         if (decoded.ethereumWithdrawStateBefore != currentWithdrawState) {
             revert InvalidWithdrawState(decoded.ethereumWithdrawStateBefore);
         }
-        if (
-            !settlementVerifier.isActionStateValid(
-                decoded.zekoActionStateAfter
-            )
-        ) {
-            revert InvalidSettlementActionState(decoded.zekoActionStateAfter);
-        }
         if (processedActionState[decoded.zekoActionStateAfter]) {
             revert ActionStateAlreadyProcessed(decoded.zekoActionStateAfter);
+        }
+
+        (
+            uint64 oldL2ActionStateIndex,
+            bool oldL2ActionStateValid
+        ) = settlementVerifier.l2ActionStateInfo(decoded.zekoActionStateBefore);
+        (
+            uint64 newL2ActionStateIndex,
+            bool newL2ActionStateValid
+        ) = settlementVerifier.l2ActionStateInfo(decoded.zekoActionStateAfter);
+        if (!oldL2ActionStateValid) {
+            revert InvalidSettlementActionState(decoded.zekoActionStateBefore);
+        }
+        if (!newL2ActionStateValid) {
+            revert InvalidSettlementActionState(decoded.zekoActionStateAfter);
+        }
+        if (
+            oldL2ActionStateIndex != currentWithdrawActionStateIndex ||
+            newL2ActionStateIndex != oldL2ActionStateIndex + 1
+        ) {
+            revert InvalidL2ActionStateTransition(
+                decoded.zekoActionStateBefore,
+                decoded.zekoActionStateAfter
+            );
         }
 
         processedActionState[decoded.zekoActionStateAfter] = true;
@@ -563,6 +634,9 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
             withdrawStateOldActionState[
                 decoded.ethereumWithdrawStateAfter
             ] = decoded.zekoActionStateBefore;
+            withdrawStateOldActionStateIndex[
+                decoded.ethereumWithdrawStateAfter
+            ] = oldL2ActionStateIndex;
 
             emit WithdrawStateAccepted(
                 decoded.zekoActionStateBefore,
@@ -573,14 +647,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         }
 
         currentWithdrawState = decoded.ethereumWithdrawStateAfter;
-
-        emit BridgeTransitionAccepted(
-            decoded.zekoActionStateBefore,
-            decoded.zekoActionStateAfter,
-            decoded.ethereumStateAfter,
-            decoded.ethereumWithdrawStateAfter,
-            decoded.ethereumNonceAfter
-        );
+        currentWithdrawActionStateIndex = newL2ActionStateIndex;
     }
 
     function decodeBridgePublicValues(
@@ -607,6 +674,28 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         cursor += 32;
         decoded.zekoActionStateAfter = _readBytes32(publicValues, cursor);
         cursor += 32;
+        decoded.depositCount = _readUint32LE(publicValues, cursor);
+        cursor += 4;
+
+        assert(cursor == BRIDGE_PUBLIC_VALUES_LENGTH);
+    }
+
+    function decodeWithdrawPublicValues(
+        bytes calldata publicValues
+    ) public pure returns (DecodedWithdrawPublicValues memory decoded) {
+        if (publicValues.length != WITHDRAW_PUBLIC_VALUES_LENGTH) {
+            revert InvalidBridgePublicValuesLength(
+                WITHDRAW_PUBLIC_VALUES_LENGTH,
+                publicValues.length
+            );
+        }
+
+        uint256 cursor = 0;
+
+        decoded.zekoActionStateBefore = _readBytes32(publicValues, cursor);
+        cursor += 32;
+        decoded.zekoActionStateAfter = _readBytes32(publicValues, cursor);
+        cursor += 32;
         decoded.ethereumWithdrawStateBefore = _readBytes32(
             publicValues,
             cursor
@@ -617,12 +706,10 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
             cursor
         );
         cursor += 32;
-        decoded.depositCount = _readUint32LE(publicValues, cursor);
-        cursor += 4;
         decoded.withdrawCount = _readUint32LE(publicValues, cursor);
         cursor += 4;
 
-        assert(cursor == BRIDGE_PUBLIC_VALUES_LENGTH);
+        assert(cursor == WITHDRAW_PUBLIC_VALUES_LENGTH);
     }
 
     /// @notice Claims a withdraw included in an accepted sequential withdraw state.
@@ -658,7 +745,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         if (state != withdrawStateAfter) revert InvalidWithdrawProof();
 
         bytes32 nullifier = computeWithdrawNullifier(
-            withdrawStateOldActionState[withdrawStateAfter],
+            withdrawStateOldActionStateIndex[withdrawStateAfter],
             withdrawIndex,
             withdrawLeaf
         );

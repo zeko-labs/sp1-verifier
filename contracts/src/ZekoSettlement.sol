@@ -27,6 +27,14 @@ contract ZekoSettlement {
     bytes32 public actionState;
     bytes32 public currentRoot;
     mapping(bytes32 => bool) public validActionState;
+    uint64 public currentL2ActionStateIndex;
+
+    struct L2ActionStateInfo {
+        uint64 index;
+        bool valid;
+    }
+
+    mapping(bytes32 => L2ActionStateInfo) public l2ActionStateInfo;
 
     event OwnershipTransferStarted(
         address indexed previousOwner,
@@ -92,6 +100,10 @@ contract ZekoSettlement {
         actionState = initialActionState_;
         currentRoot = initialRoot_;
         validActionState[initialActionState_] = true;
+        l2ActionStateInfo[initialActionState_] = L2ActionStateInfo({
+            index: 0,
+            valid: true
+        });
 
         emit OwnershipTransferred(address(0), msg.sender);
         emit VkHashUpdated(bytes32(0), initialVkHash_);
@@ -136,6 +148,7 @@ contract ZekoSettlement {
         bytes32 oldActionState = actionState;
         actionState = newActionState;
         validActionState[newActionState] = true;
+        _recordL2ActionState(newActionState);
 
         emit ActionStateUpdated(oldActionState, newActionState);
     }
@@ -167,6 +180,7 @@ contract ZekoSettlement {
         }
 
         validActionState[decoded.actionStateBefore] = true;
+        _recordL2ActionState(decoded.actionStateBefore);
 
         if (decoded.stateBefore[3] != currentRoot) {
             revert InvalidCurrentRoot(currentRoot, decoded.stateBefore[3]);
@@ -240,5 +254,15 @@ contract ZekoSettlement {
         assembly {
             value := calldataload(add(data.offset, offset))
         }
+    }
+
+    function _recordL2ActionState(bytes32 targetActionState) internal {
+        if (l2ActionStateInfo[targetActionState].valid) return;
+
+        currentL2ActionStateIndex += 1;
+        l2ActionStateInfo[targetActionState] = L2ActionStateInfo({
+            index: currentL2ActionStateIndex,
+            valid: true
+        });
     }
 }

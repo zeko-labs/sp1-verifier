@@ -3,6 +3,7 @@ members = [
     "lib",
     "program/settlement",
     "program/bridge",
+    "program/withdraw",
     "script",
     "tools/generate-srs"
 ]

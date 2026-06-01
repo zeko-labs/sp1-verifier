@@ -30,8 +30,18 @@ contract TestERC20 is ERC20 {
 
 contract MockSettlementVerifier {
     mapping(bytes32 => bool) public validActionState;
+    mapping(bytes32 => uint64) public l2ActionStateIndex;
 
     function setActionStateValid(bytes32 actionState, bool valid) external {
+        validActionState[actionState] = valid;
+    }
+
+    function setL2ActionStateInfo(
+        bytes32 actionState,
+        uint64 index,
+        bool valid
+    ) external {
+        l2ActionStateIndex[actionState] = index;
         validActionState[actionState] = valid;
     }
 
@@ -39,6 +49,12 @@ contract MockSettlementVerifier {
         bytes32 actionState
     ) external view returns (bool) {
         return validActionState[actionState];
+    }
+
+    function l2ActionStateInfo(
+        bytes32 actionState
+    ) external view returns (uint64 index, bool valid) {
+        return (l2ActionStateIndex[actionState], validActionState[actionState]);
     }
 }
 
@@ -74,6 +90,7 @@ contract EthereumZekoBridgeTest is Test {
     TestERC20 internal token18;
     TestERC20 internal token6;
     bytes32 internal bridgeProgramVKey = keccak256("bridge program vkey");
+    bytes32 internal withdrawProgramVKey = keccak256("withdraw program vkey");
 
     address internal owner = address(this);
     address internal alice = address(0xA11CE);
@@ -86,7 +103,9 @@ contract EthereumZekoBridgeTest is Test {
             owner,
             address(settlement),
             address(sp1Verifier),
-            bridgeProgramVKey
+            bridgeProgramVKey,
+            address(sp1Verifier),
+            withdrawProgramVKey
         );
         token18 = new TestERC20("Token18", "TK18", 18);
         token6 = new TestERC20("Token6", "TK6", 6);
@@ -105,6 +124,8 @@ contract EthereumZekoBridgeTest is Test {
         assertEq(address(bridge.settlementVerifier()), address(settlement));
         assertEq(address(bridge.bridgeVerifier()), address(sp1Verifier));
         assertEq(bridge.bridgeProgramVKey(), bridgeProgramVKey);
+        assertEq(address(bridge.withdrawVerifier()), address(sp1Verifier));
+        assertEq(bridge.withdrawProgramVKey(), withdrawProgramVKey);
     }
 
     function test_AddToken_StoresDecimals() public {
@@ -345,22 +366,18 @@ contract EthereumZekoBridgeTest is Test {
         bridge.computeDepositLeaf(address(token18), invalid, 1, 1, 1);
     }
 
-    function test_SubmitBridgeTransition_RequiresSettlementActionState()
+    function test_SubmitWithdrawTransition_RequiresSettlementActionState()
         public
     {
         bytes32 oldActionState = keccak256("old action state");
         bytes32 actionState = keccak256("action state");
         bytes32 newWithdrawState = keccak256("withdraw state");
-        bytes memory publicValues = _bridgePublicValues(
-            bridge.currentDepositState(),
-            bridge.currentDepositState(),
-            bridge.depositNonce(),
-            bridge.depositNonce(),
+        settlement.setL2ActionStateInfo(oldActionState, 0, true);
+        bytes memory publicValues = _withdrawPublicValues(
             oldActionState,
             actionState,
             bridge.currentWithdrawState(),
             newWithdrawState,
-            0,
             1
         );
 
@@ -370,14 +387,14 @@ contract EthereumZekoBridgeTest is Test {
                 actionState
             )
         );
-        bridge.submitBridgeTransition(publicValues, "");
+        bridge.submitWithdrawTransition(publicValues, "");
     }
 
-    function test_SubmitBridgeTransition_StoresValidWithdrawState() public {
-        bytes32 oldActionState = keccak256("old action state");
-        bytes32 actionState = keccak256("action state");
-        bytes32 newWithdrawState = keccak256("withdraw state");
-        settlement.setActionStateValid(actionState, true);
+    function test_SubmitBridgeTransition_StoresProcessedDepositActionState()
+        public
+    {
+        bytes32 oldActionState = keccak256("old deposit action state");
+        bytes32 actionState = keccak256("deposit action state");
         bytes memory publicValues = _bridgePublicValues(
             bridge.currentDepositState(),
             bridge.currentDepositState(),
@@ -385,13 +402,30 @@ contract EthereumZekoBridgeTest is Test {
             bridge.depositNonce(),
             oldActionState,
             actionState,
-            bridge.currentWithdrawState(),
-            newWithdrawState,
-            0,
-            1
+            0
         );
 
         bridge.submitBridgeTransition(publicValues, "");
+
+        assertTrue(bridge.processedActionState(actionState));
+        assertEq(bridge.currentWithdrawState(), bytes32(0));
+    }
+
+    function test_SubmitWithdrawTransition_StoresValidWithdrawState() public {
+        bytes32 oldActionState = keccak256("old action state");
+        bytes32 actionState = keccak256("action state");
+        bytes32 newWithdrawState = keccak256("withdraw state");
+        settlement.setL2ActionStateInfo(oldActionState, 0, true);
+        settlement.setL2ActionStateInfo(actionState, 1, true);
+        bytes memory publicValues = _withdrawPublicValues(
+            oldActionState,
+            actionState,
+            bridge.currentWithdrawState(),
+            newWithdrawState,
+            1
+        );
+
+        bridge.submitWithdrawTransition(publicValues, "");
 
         assertTrue(bridge.processedActionState(actionState));
         assertTrue(bridge.validWithdrawState(newWithdrawState));
@@ -402,38 +436,55 @@ contract EthereumZekoBridgeTest is Test {
         assertEq(bridge.currentWithdrawState(), newWithdrawState);
     }
 
-    function test_SubmitBridgeTransition_RevertsWhenActionStateAlreadyProcessed()
+    function test_SubmitWithdrawTransition_RevertsWhenL2ActionStateSkipsIndex()
         public
     {
         bytes32 oldActionState = keccak256("old action state");
         bytes32 actionState = keccak256("action state");
         bytes32 newWithdrawState = keccak256("withdraw state");
-        settlement.setActionStateValid(actionState, true);
-        bytes memory firstPublicValues = _bridgePublicValues(
-            bridge.currentDepositState(),
-            bridge.currentDepositState(),
-            bridge.depositNonce(),
-            bridge.depositNonce(),
+        settlement.setL2ActionStateInfo(oldActionState, 0, true);
+        settlement.setL2ActionStateInfo(actionState, 2, true);
+        bytes memory publicValues = _withdrawPublicValues(
             oldActionState,
             actionState,
             bridge.currentWithdrawState(),
             newWithdrawState,
-            0,
             1
         );
 
-        bridge.submitBridgeTransition(firstPublicValues, "");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                EthereumZekoBridge.InvalidL2ActionStateTransition.selector,
+                oldActionState,
+                actionState
+            )
+        );
+        bridge.submitWithdrawTransition(publicValues, "");
+    }
 
-        bytes memory secondPublicValues = _bridgePublicValues(
-            bridge.currentDepositState(),
-            bridge.currentDepositState(),
-            bridge.depositNonce(),
-            bridge.depositNonce(),
+    function test_SubmitWithdrawTransition_RevertsWhenActionStateAlreadyProcessed()
+        public
+    {
+        bytes32 oldActionState = keccak256("old action state");
+        bytes32 actionState = keccak256("action state");
+        bytes32 newWithdrawState = keccak256("withdraw state");
+        settlement.setL2ActionStateInfo(oldActionState, 0, true);
+        settlement.setL2ActionStateInfo(actionState, 1, true);
+        bytes memory firstPublicValues = _withdrawPublicValues(
+            oldActionState,
+            actionState,
+            bridge.currentWithdrawState(),
+            newWithdrawState,
+            1
+        );
+
+        bridge.submitWithdrawTransition(firstPublicValues, "");
+
+        bytes memory secondPublicValues = _withdrawPublicValues(
             oldActionState,
             actionState,
             newWithdrawState,
             keccak256("next"),
-            0,
             1
         );
 
@@ -443,7 +494,7 @@ contract EthereumZekoBridgeTest is Test {
                 actionState
             )
         );
-        bridge.submitBridgeTransition(secondPublicValues, "");
+        bridge.submitWithdrawTransition(secondPublicValues, "");
     }
 
     function test_ClaimWithdraw_ReconstructsSequentialStateAndTransfersERC20()
@@ -454,7 +505,8 @@ contract EthereumZekoBridgeTest is Test {
 
         bytes32 oldActionState = keccak256("old action state");
         bytes32 actionState = keccak256("action state");
-        settlement.setActionStateValid(actionState, true);
+        settlement.setL2ActionStateInfo(oldActionState, 0, true);
+        settlement.setL2ActionStateInfo(actionState, 1, true);
 
         EthereumZekoBridge.WithdrawClaim memory target = EthereumZekoBridge
             .WithdrawClaim({
@@ -484,17 +536,12 @@ contract EthereumZekoBridgeTest is Test {
         state = bridge.computeNextWithdrawState(state, leaf1);
         state = bridge.computeNextWithdrawState(state, leaf2);
 
-        bridge.submitBridgeTransition(
-            _bridgePublicValues(
-                bridge.currentDepositState(),
-                bridge.currentDepositState(),
-                bridge.depositNonce(),
-                bridge.depositNonce(),
+        bridge.submitWithdrawTransition(
+            _withdrawPublicValues(
                 oldActionState,
                 actionState,
                 bytes32(0),
                 state,
-                0,
                 3
             ),
             ""
@@ -513,7 +560,7 @@ contract EthereumZekoBridgeTest is Test {
         assertEq(token18.balanceOf(address(bridge)), 8 ether);
 
         bytes32 nullifier = bridge.computeWithdrawNullifier(
-            oldActionState,
+            0,
             1,
             leaf1
         );
@@ -526,7 +573,8 @@ contract EthereumZekoBridgeTest is Test {
 
         bytes32 oldActionState = keccak256("old action state");
         bytes32 actionState = keccak256("action state");
-        settlement.setActionStateValid(actionState, true);
+        settlement.setL2ActionStateInfo(oldActionState, 0, true);
+        settlement.setL2ActionStateInfo(actionState, 1, true);
 
         EthereumZekoBridge.WithdrawClaim memory target = EthereumZekoBridge
             .WithdrawClaim({
@@ -541,17 +589,12 @@ contract EthereumZekoBridgeTest is Test {
             target.amount
         );
         bytes32 state = bridge.computeNextWithdrawState(bytes32(0), leaf);
-        bridge.submitBridgeTransition(
-            _bridgePublicValues(
-                bridge.currentDepositState(),
-                bridge.currentDepositState(),
-                bridge.depositNonce(),
-                bridge.depositNonce(),
+        bridge.submitWithdrawTransition(
+            _withdrawPublicValues(
                 oldActionState,
                 actionState,
                 bytes32(0),
                 state,
-                0,
                 1
             ),
             ""
@@ -561,7 +604,7 @@ contract EthereumZekoBridgeTest is Test {
         bridge.claimWithdraw(bytes32(0), state, target, 0, leaves);
 
         bytes32 nullifier = bridge.computeWithdrawNullifier(
-            oldActionState,
+            0,
             0,
             leaf
         );
@@ -580,7 +623,8 @@ contract EthereumZekoBridgeTest is Test {
 
         bytes32 oldActionState = keccak256("old action state");
         bytes32 actionState = keccak256("action state");
-        settlement.setActionStateValid(actionState, true);
+        settlement.setL2ActionStateInfo(oldActionState, 0, true);
+        settlement.setL2ActionStateInfo(actionState, 1, true);
 
         EthereumZekoBridge.WithdrawClaim memory target = EthereumZekoBridge
             .WithdrawClaim({
@@ -602,17 +646,12 @@ contract EthereumZekoBridgeTest is Test {
 
         bytes32 state = bridge.computeNextWithdrawState(bytes32(0), leaf0);
         state = bridge.computeNextWithdrawState(state, leaf1);
-        bridge.submitBridgeTransition(
-            _bridgePublicValues(
-                bridge.currentDepositState(),
-                bridge.currentDepositState(),
-                bridge.depositNonce(),
-                bridge.depositNonce(),
+        bridge.submitWithdrawTransition(
+            _withdrawPublicValues(
                 oldActionState,
                 actionState,
                 bytes32(0),
                 state,
-                0,
                 2
             ),
             ""
@@ -633,12 +672,9 @@ contract EthereumZekoBridgeTest is Test {
         uint64 ethereumNonceAfter,
         bytes32 zekoActionStateBefore,
         bytes32 zekoActionStateAfter,
-        bytes32 ethereumWithdrawStateBefore,
-        bytes32 ethereumWithdrawStateAfter,
-        uint32 depositCount,
-        uint32 withdrawCount
+        uint32 depositCount
     ) private pure returns (bytes memory publicValues) {
-        publicValues = new bytes(216);
+        publicValues = new bytes(148);
         uint256 cursor = 0;
 
         _writeBytes32(publicValues, cursor, ethereumStateBefore);
@@ -653,12 +689,29 @@ contract EthereumZekoBridgeTest is Test {
         cursor += 32;
         _writeBytes32(publicValues, cursor, zekoActionStateAfter);
         cursor += 32;
+        _writeUint32LE(publicValues, cursor, depositCount);
+        cursor += 4;
+        assert(cursor == publicValues.length);
+    }
+
+    function _withdrawPublicValues(
+        bytes32 zekoActionStateBefore,
+        bytes32 zekoActionStateAfter,
+        bytes32 ethereumWithdrawStateBefore,
+        bytes32 ethereumWithdrawStateAfter,
+        uint32 withdrawCount
+    ) private pure returns (bytes memory publicValues) {
+        publicValues = new bytes(132);
+        uint256 cursor = 0;
+
+        _writeBytes32(publicValues, cursor, zekoActionStateBefore);
+        cursor += 32;
+        _writeBytes32(publicValues, cursor, zekoActionStateAfter);
+        cursor += 32;
         _writeBytes32(publicValues, cursor, ethereumWithdrawStateBefore);
         cursor += 32;
         _writeBytes32(publicValues, cursor, ethereumWithdrawStateAfter);
         cursor += 32;
-        _writeUint32LE(publicValues, cursor, depositCount);
-        cursor += 4;
         _writeUint32LE(publicValues, cursor, withdrawCount);
         cursor += 4;
 
