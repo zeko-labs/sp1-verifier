@@ -3,6 +3,10 @@ pragma solidity ^0.8.20;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {stdJson} from "forge-std/StdJson.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {
+    ERC1967Proxy
+} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {ZekoSettlement} from "../src/ZekoSettlement.sol";
 import {ISP1Verifier} from "../src/ZekoSettlement.sol";
@@ -73,7 +77,7 @@ contract ZekoSettlementGroth16Test is Test {
         fixturePublicValues = json.readBytes(".publicValues");
         fixtureProof = json.readBytes(".proof");
 
-        zeko = new ZekoSettlement(
+        zeko = _deploySettlement(
             address(gateway),
             fixtureVkey,
             VK_HASH,
@@ -85,8 +89,10 @@ contract ZekoSettlementGroth16Test is Test {
     function test_SetUp() public view {
         assertEq(address(zeko.verifier()), SP1_GATEWAY);
         assertEq(zeko.programVKey(), fixtureVkey);
-        assertEq(zeko.owner(), owner);
-        assertEq(zeko.pendingOwner(), address(0));
+        assertTrue(zeko.hasRole(zeko.DEFAULT_ADMIN_ROLE(), owner));
+        assertTrue(zeko.hasRole(zeko.ADMIN_ROLE(), owner));
+        assertTrue(zeko.hasRole(zeko.PROVER_ROLE(), owner));
+        assertTrue(zeko.hasRole(zeko.UPGRADER_ROLE(), owner));
         assertEq(zeko.vkHash(), VK_HASH);
         assertEq(zeko.actionState(), ACTION_STATE);
         assertEq(zeko.currentRoot(), CURRENT_ROOT);
@@ -144,6 +150,43 @@ contract ZekoSettlementGroth16Test is Test {
         zeko.getDecodedPublicValues(pv);
     }
 
+    function test_Upgrade_RevertsWhenNotUpgrader() public {
+        ZekoSettlement newImplementation = new ZekoSettlement();
+        bytes32 upgraderRole = zeko.UPGRADER_ROLE();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                upgraderRole
+            )
+        );
+        vm.prank(alice);
+        zeko.upgradeToAndCall(address(newImplementation), "");
+    }
+
+    function test_Upgrade_AllowsUpgrader() public {
+        ZekoSettlement newImplementation = new ZekoSettlement();
+
+        zeko.upgradeToAndCall(address(newImplementation), "");
+
+        assertEq(zeko.currentRoot(), CURRENT_ROOT);
+    }
+
+    function test_VerifyAndUpdateRoot_RevertsWhenNotProver() public {
+        bytes32 proverRole = zeko.PROVER_ROLE();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                proverRole
+            )
+        );
+        vm.prank(alice);
+        zeko.verifyAndUpdateRoot(fixturePublicValues, fixtureProof);
+    }
+
     function test_ValidGroth16ProofUpdatesRoot() public {
         ZekoSettlement.DecodedPublicValues memory decoded = _decodePublicValues(
             fixturePublicValues
@@ -176,7 +219,7 @@ contract ZekoSettlementGroth16Test is Test {
             fixturePublicValues
         );
 
-        ZekoSettlement target = new ZekoSettlement(
+        ZekoSettlement target = _deploySettlement(
             address(gateway),
             fixtureVkey,
             decoded.vkHash,
@@ -202,7 +245,7 @@ contract ZekoSettlementGroth16Test is Test {
             fixturePublicValues
         );
 
-        ZekoSettlement target = new ZekoSettlement(
+        ZekoSettlement target = _deploySettlement(
             address(gateway),
             fixtureVkey,
             decoded.vkHash,
@@ -230,7 +273,7 @@ contract ZekoSettlementGroth16Test is Test {
 
         bytes32 badRoot = keccak256("bad root");
 
-        ZekoSettlement target = new ZekoSettlement(
+        ZekoSettlement target = _deploySettlement(
             address(gateway),
             fixtureVkey,
             decoded.vkHash,
@@ -248,18 +291,24 @@ contract ZekoSettlementGroth16Test is Test {
         target.verifyAndUpdateRoot(fixturePublicValues, fixtureProof);
     }
 
-    function test_SetVkHashOnlyOwner() public {
+    function test_SetVkHashOnlyAdmin() public {
         zeko.setVkHash(keccak256("new vk hash"));
         assertEq(zeko.vkHash(), keccak256("new vk hash"));
     }
 
-    function test_RevertSetVkHashWhenNotOwner() public {
+    function test_RevertSetVkHashWhenNotAdmin() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                zeko.ADMIN_ROLE()
+            )
+        );
         vm.prank(alice);
-        vm.expectRevert(ZekoSettlement.NotOwner.selector);
         zeko.setVkHash(keccak256("new vk hash"));
     }
 
-    function test_SetActionStateOnlyOwner() public {
+    function test_SetActionStateOnlyAdmin() public {
         bytes32 newActionState = keccak256("new action state");
         zeko.setActionState(newActionState);
         assertEq(zeko.actionState(), newActionState);
@@ -267,53 +316,59 @@ contract ZekoSettlementGroth16Test is Test {
         assertTrue(zeko.isActionStateValid(newActionState));
     }
 
-    function test_RevertSetActionStateWhenNotOwner() public {
+    function test_RevertSetActionStateWhenNotAdmin() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                zeko.ADMIN_ROLE()
+            )
+        );
         vm.prank(alice);
-        vm.expectRevert(ZekoSettlement.NotOwner.selector);
         zeko.setActionState(keccak256("new action state"));
     }
 
-    function test_TwoStepOwnershipTransfer() public {
-        zeko.transferOwnership(alice);
-        assertEq(zeko.owner(), owner);
-        assertEq(zeko.pendingOwner(), alice);
+    function test_DefaultAdminCanGrantRoles() public {
+        zeko.grantRole(zeko.ADMIN_ROLE(), alice);
+        assertTrue(zeko.hasRole(zeko.ADMIN_ROLE(), alice));
+    }
 
+    function test_RevertGrantRoleWhenNotDefaultAdmin() public {
+        bytes32 proverRole = zeko.PROVER_ROLE();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                zeko.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(alice);
-        zeko.acceptOwnership();
-        assertEq(zeko.owner(), alice);
-        assertEq(zeko.pendingOwner(), address(0));
+        zeko.grantRole(proverRole, bob);
     }
 
-    function test_RevertTransferOwnershipWhenNotOwner() public {
-        vm.prank(alice);
-        vm.expectRevert(ZekoSettlement.NotOwner.selector);
-        zeko.transferOwnership(bob);
-    }
-
-    function test_RevertTransferOwnershipToZeroAddress() public {
-        vm.expectRevert(ZekoSettlement.ZeroAddress.selector);
-        zeko.transferOwnership(address(0));
-    }
-
-    function test_RevertAcceptOwnershipWhenNotPendingOwner() public {
-        zeko.transferOwnership(alice);
-        vm.prank(bob);
-        vm.expectRevert(ZekoSettlement.NotPendingOwner.selector);
-        zeko.acceptOwnership();
-    }
-
-    function test_CancelOwnershipTransfer() public {
-        zeko.transferOwnership(alice);
-        zeko.cancelOwnershipTransfer();
-        assertEq(zeko.owner(), owner);
-        assertEq(zeko.pendingOwner(), address(0));
-    }
-
-    function test_RevertCancelOwnershipTransferWhenNotOwner() public {
-        zeko.transferOwnership(alice);
-        vm.prank(alice);
-        vm.expectRevert(ZekoSettlement.NotOwner.selector);
-        zeko.cancelOwnershipTransfer();
+    function _deploySettlement(
+        address verifier,
+        bytes32 programVKey,
+        bytes32 initialVkHash,
+        bytes32 initialActionState,
+        bytes32 initialRoot
+    ) private returns (ZekoSettlement target) {
+        ZekoSettlement implementation = new ZekoSettlement();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(implementation),
+            abi.encodeCall(
+                ZekoSettlement.initialize,
+                (
+                    owner,
+                    verifier,
+                    programVKey,
+                    initialVkHash,
+                    initialActionState,
+                    initialRoot
+                )
+            )
+        );
+        target = ZekoSettlement(address(proxy));
     }
 
     function _buildPublicValues(

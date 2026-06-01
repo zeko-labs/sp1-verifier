@@ -8,7 +8,13 @@ import {
 import {
     SafeERC20
 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {
     ReentrancyGuard
@@ -30,7 +36,13 @@ interface IZekoSettlementVerifier {
 /// @notice Ethereum-side bridge contract for Zeko.
 /// @dev Each deposit updates an append-only sequential state:
 ///      newDepositState = keccak256(DEPOSIT_STATE_DOMAIN, oldDepositState, depositLeaf)
-contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
+contract EthereumZekoBridge is
+    Initializable,
+    AccessControl,
+    UUPSUpgradeable,
+    Pausable,
+    ReentrancyGuard
+{
     using SafeERC20 for IERC20;
     using ZekoAddressLib for ZekoAddress;
 
@@ -97,6 +109,10 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
 
     uint8 public constant MAX_ZEKO_DECIMALS = 9;
     uint8 public constant NATIVE_ETHEREUM_DECIMALS = 18;
+
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant PROVER_ROLE = keccak256("PROVER_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     struct TokenConfig {
         uint8 zekoDecimals;
@@ -170,11 +186,11 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     /// @notice Total deposited amount per token.
     mapping(address => uint256) public totalDepositedByToken;
 
-    IZekoSettlementVerifier public immutable settlementVerifier;
-    ISP1Verifier public immutable bridgeVerifier;
-    bytes32 public immutable bridgeProgramVKey;
-    ISP1Verifier public immutable withdrawVerifier;
-    bytes32 public immutable withdrawProgramVKey;
+    IZekoSettlementVerifier public settlementVerifier;
+    ISP1Verifier public bridgeVerifier;
+    bytes32 public bridgeProgramVKey;
+    ISP1Verifier public withdrawVerifier;
+    bytes32 public withdrawProgramVKey;
 
     // -------------------------------------------------------------------------
     // Events
@@ -232,18 +248,23 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     );
 
     // -------------------------------------------------------------------------
-    // Constructor
+    // Initialization
     // -------------------------------------------------------------------------
 
-    constructor(
-        address initialOwner,
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address initialAdmin,
         address settlementVerifier_,
         address bridgeVerifier_,
         bytes32 bridgeProgramVKey_,
         address withdrawVerifier_,
         bytes32 withdrawProgramVKey_
-    ) Ownable(initialOwner) {
-        if (initialOwner == address(0)) revert ZeroAddress();
+    ) external initializer {
+        if (initialAdmin == address(0)) revert ZeroAddress();
         if (settlementVerifier_ == address(0)) revert ZeroAddress();
         if (bridgeVerifier_ == address(0)) revert ZeroAddress();
         if (withdrawVerifier_ == address(0)) revert ZeroAddress();
@@ -256,6 +277,11 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         currentDepositState = INITIAL_DEPOSIT_STATE;
         currentWithdrawState = bytes32(0);
         depositStateByNonce[0] = INITIAL_DEPOSIT_STATE;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
+        _grantRole(ADMIN_ROLE, initialAdmin);
+        _grantRole(PROVER_ROLE, initialAdmin);
+        _grantRole(UPGRADER_ROLE, initialAdmin);
 
         allowedToken[address(0)] = TokenConfig({
             zekoDecimals: MAX_ZEKO_DECIMALS,
@@ -280,7 +306,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         bool allowed,
         uint8 zekoDecimals,
         uint8 ethereumDecimals
-    ) external onlyOwner {
+    ) external onlyRole(ADMIN_ROLE) {
         TokenConfig memory existingConfig = allowedToken[token];
         if (existingConfig.ethereumDecimals != 0) {
             revert TokenAlreadyAdded(token);
@@ -314,7 +340,10 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         emit TokenAllowed(token, allowed, zekoDecimals, ethereumDecimals);
     }
 
-    function setTokenAllowed(address token, bool allowed) external onlyOwner {
+    function setTokenAllowed(
+        address token,
+        bool allowed
+    ) external onlyRole(ADMIN_ROLE) {
         TokenConfig memory existingConfig = allowedToken[token];
         if (existingConfig.ethereumDecimals == 0) revert TokenNotAdded(token);
 
@@ -327,11 +356,11 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         );
     }
 
-    function pause() external onlyOwner {
+    function pause() external onlyRole(ADMIN_ROLE) {
         _pause();
     }
 
-    function unpause() external onlyOwner {
+    function unpause() external onlyRole(ADMIN_ROLE) {
         _unpause();
     }
 
@@ -341,7 +370,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         address token,
         address to,
         uint256 amount
-    ) external onlyOwner nonReentrant {
+    ) external onlyRole(ADMIN_ROLE) nonReentrant {
         if (to == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
 
@@ -530,7 +559,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     function submitBridgeTransition(
         bytes calldata publicValues,
         bytes calldata proofBytes
-    ) external whenNotPaused {
+    ) external onlyRole(PROVER_ROLE) whenNotPaused {
         bridgeVerifier.verifyProof(bridgeProgramVKey, publicValues, proofBytes);
 
         DecodedBridgePublicValues memory decoded = decodeBridgePublicValues(
@@ -585,7 +614,7 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
     function submitWithdrawTransition(
         bytes calldata publicValues,
         bytes calldata proofBytes
-    ) external whenNotPaused {
+    ) external onlyRole(PROVER_ROLE) whenNotPaused {
         withdrawVerifier.verifyProof(
             withdrawProgramVKey,
             publicValues,
@@ -929,5 +958,11 @@ contract EthereumZekoBridge is Ownable, Pausable, ReentrancyGuard {
         for (uint256 i = 0; i < 4; i++) {
             value |= uint32(uint8(data[offset + i])) << uint32(8 * i);
         }
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal view override onlyRole(UPGRADER_ROLE) {
+        newImplementation;
     }
 }

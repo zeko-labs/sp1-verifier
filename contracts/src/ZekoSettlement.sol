@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: Not defined
 pragma solidity ^0.8.20;
 
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts/proxy/utils/UUPSUpgradeable.sol";
+
 interface ISP1Verifier {
     /// @notice Verifies an SP1 proof.
     /// @param programVKey The verification key for the SP1 program.
@@ -13,15 +21,16 @@ interface ISP1Verifier {
     ) external view;
 }
 
-contract ZekoSettlement {
+contract ZekoSettlement is Initializable, AccessControl, UUPSUpgradeable {
     uint256 private constant PUBLIC_VALUES_LENGTH = 577;
     uint256 private constant STATE_ARRAY_LENGTH = 8;
 
-    address public owner;
-    address public pendingOwner;
+    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    bytes32 public constant PROVER_ROLE = keccak256("PROVER_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
-    ISP1Verifier public immutable verifier;
-    bytes32 public immutable programVKey;
+    ISP1Verifier public verifier;
+    bytes32 public programVKey;
 
     bytes32 public vkHash;
     bytes32 public actionState;
@@ -36,18 +45,6 @@ contract ZekoSettlement {
 
     mapping(bytes32 => L2ActionStateInfo) public l2ActionStateInfo;
 
-    event OwnershipTransferStarted(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
-    event OwnershipTransferred(
-        address indexed previousOwner,
-        address indexed newOwner
-    );
-    event OwnershipTransferCanceled(
-        address indexed owner,
-        address indexed pendingOwner
-    );
     event VkHashUpdated(bytes32 indexed oldVkHash, bytes32 indexed newVkHash);
     event ActionStateUpdated(
         bytes32 indexed oldActionState,
@@ -55,8 +52,6 @@ contract ZekoSettlement {
     );
     event RootUpdated(bytes32 indexed oldRoot, bytes32 indexed newRoot);
 
-    error NotOwner();
-    error NotPendingOwner();
     error ZeroAddress();
     error InvalidPublicValuesLength(uint256 expected, uint256 actual);
     error InvalidBool(uint8 value);
@@ -73,26 +68,22 @@ contract ZekoSettlement {
         bytes32 actionStateBefore;
     }
 
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert NotOwner();
-        _;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
-    modifier onlyPendingOwner() {
-        if (msg.sender != pendingOwner) revert NotPendingOwner();
-        _;
-    }
-
-    constructor(
+    function initialize(
+        address initialAdmin,
         address verifier_,
         bytes32 programVKey_,
         bytes32 initialVkHash_,
         bytes32 initialActionState_,
         bytes32 initialRoot_
-    ) {
+    ) external initializer {
+        if (initialAdmin == address(0)) revert ZeroAddress();
         if (verifier_ == address(0)) revert ZeroAddress();
 
-        owner = msg.sender;
         verifier = ISP1Verifier(verifier_);
         programVKey = programVKey_;
 
@@ -105,46 +96,26 @@ contract ZekoSettlement {
             valid: true
         });
 
-        emit OwnershipTransferred(address(0), msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, initialAdmin);
+        _grantRole(ADMIN_ROLE, initialAdmin);
+        _grantRole(PROVER_ROLE, initialAdmin);
+        _grantRole(UPGRADER_ROLE, initialAdmin);
+
         emit VkHashUpdated(bytes32(0), initialVkHash_);
         emit ActionStateUpdated(bytes32(0), initialActionState_);
         emit RootUpdated(bytes32(0), initialRoot_);
     }
 
-    function transferOwnership(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert ZeroAddress();
-
-        pendingOwner = newOwner;
-
-        emit OwnershipTransferStarted(owner, newOwner);
-    }
-
-    function acceptOwnership() external onlyPendingOwner {
-        address oldOwner = owner;
-        address newOwner = pendingOwner;
-
-        owner = newOwner;
-        pendingOwner = address(0);
-
-        emit OwnershipTransferred(oldOwner, newOwner);
-    }
-
-    function cancelOwnershipTransfer() external onlyOwner {
-        address oldPendingOwner = pendingOwner;
-
-        pendingOwner = address(0);
-
-        emit OwnershipTransferCanceled(owner, oldPendingOwner);
-    }
-
-    function setVkHash(bytes32 newVkHash) external onlyOwner {
+    function setVkHash(bytes32 newVkHash) external onlyRole(ADMIN_ROLE) {
         bytes32 oldVkHash = vkHash;
         vkHash = newVkHash;
 
         emit VkHashUpdated(oldVkHash, newVkHash);
     }
 
-    function setActionState(bytes32 newActionState) external onlyOwner {
+    function setActionState(
+        bytes32 newActionState
+    ) external onlyRole(ADMIN_ROLE) {
         bytes32 oldActionState = actionState;
         actionState = newActionState;
         validActionState[newActionState] = true;
@@ -162,7 +133,7 @@ contract ZekoSettlement {
     function verifyAndUpdateRoot(
         bytes calldata publicValues,
         bytes calldata proofBytes
-    ) external {
+    ) external onlyRole(PROVER_ROLE) {
         verifier.verifyProof(programVKey, publicValues, proofBytes);
 
         DecodedPublicValues memory decoded = decodePublicValues(publicValues);
@@ -264,5 +235,11 @@ contract ZekoSettlement {
             index: currentL2ActionStateIndex,
             valid: true
         });
+    }
+
+    function _authorizeUpgrade(
+        address newImplementation
+    ) internal view override onlyRole(UPGRADER_ROLE) {
+        newImplementation;
     }
 }

@@ -3,6 +3,10 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {IAccessControl} from "@openzeppelin/contracts/access/IAccessControl.sol";
+import {
+    ERC1967Proxy
+} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 import {EthereumZekoBridge} from "../src/EthereumZekoBridge.sol";
 import {ZekoAddress, ZekoAddressLib} from "../src/ZekoAddress.sol";
@@ -99,14 +103,22 @@ contract EthereumZekoBridgeTest is Test {
     function setUp() public {
         settlement = new MockSettlementVerifier();
         sp1Verifier = new MockSP1Verifier();
-        bridge = new EthereumZekoBridge(
-            owner,
-            address(settlement),
-            address(sp1Verifier),
-            bridgeProgramVKey,
-            address(sp1Verifier),
-            withdrawProgramVKey
+        EthereumZekoBridge implementation = new EthereumZekoBridge();
+        ERC1967Proxy proxy = new ERC1967Proxy(
+            address(implementation),
+            abi.encodeCall(
+                EthereumZekoBridge.initialize,
+                (
+                    owner,
+                    address(settlement),
+                    address(sp1Verifier),
+                    bridgeProgramVKey,
+                    address(sp1Verifier),
+                    withdrawProgramVKey
+                )
+            )
         );
+        bridge = EthereumZekoBridge(payable(address(proxy)));
         token18 = new TestERC20("Token18", "TK18", 18);
         token6 = new TestERC20("Token6", "TK6", 6);
 
@@ -126,6 +138,33 @@ contract EthereumZekoBridgeTest is Test {
         assertEq(bridge.bridgeProgramVKey(), bridgeProgramVKey);
         assertEq(address(bridge.withdrawVerifier()), address(sp1Verifier));
         assertEq(bridge.withdrawProgramVKey(), withdrawProgramVKey);
+        assertTrue(bridge.hasRole(bridge.DEFAULT_ADMIN_ROLE(), owner));
+        assertTrue(bridge.hasRole(bridge.ADMIN_ROLE(), owner));
+        assertTrue(bridge.hasRole(bridge.PROVER_ROLE(), owner));
+        assertTrue(bridge.hasRole(bridge.UPGRADER_ROLE(), owner));
+    }
+
+    function test_Upgrade_RevertsWhenNotUpgrader() public {
+        EthereumZekoBridge newImplementation = new EthereumZekoBridge();
+        bytes32 upgraderRole = bridge.UPGRADER_ROLE();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                upgraderRole
+            )
+        );
+        vm.prank(alice);
+        bridge.upgradeToAndCall(address(newImplementation), "");
+    }
+
+    function test_Upgrade_AllowsUpgrader() public {
+        EthereumZekoBridge newImplementation = new EthereumZekoBridge();
+
+        bridge.upgradeToAndCall(address(newImplementation), "");
+
+        assertEq(bridge.currentDepositState(), bridge.INITIAL_DEPOSIT_STATE());
     }
 
     function test_AddToken_StoresDecimals() public {
@@ -152,8 +191,14 @@ contract EthereumZekoBridgeTest is Test {
     }
 
     function test_AddToken_RevertsWhenNotOwner() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                bridge.ADMIN_ROLE()
+            )
+        );
         vm.prank(alice);
-        vm.expectRevert();
         bridge.addToken(address(token18), true, 9, 18);
     }
 
@@ -214,8 +259,14 @@ contract EthereumZekoBridgeTest is Test {
     function test_SetTokenAllowed_RevertsWhenNotOwner() public {
         bridge.addToken(address(token18), true, 9, 18);
 
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                bridge.ADMIN_ROLE()
+            )
+        );
         vm.prank(alice);
-        vm.expectRevert();
         bridge.setTokenAllowed(address(token18), false);
     }
 
@@ -409,6 +460,31 @@ contract EthereumZekoBridgeTest is Test {
 
         assertTrue(bridge.processedActionState(actionState));
         assertEq(bridge.currentWithdrawState(), bytes32(0));
+    }
+
+    function test_SubmitBridgeTransition_RevertsWhenNotProver() public {
+        bytes32 oldActionState = keccak256("old deposit action state");
+        bytes32 actionState = keccak256("deposit action state");
+        bytes32 proverRole = bridge.PROVER_ROLE();
+        bytes memory publicValues = _bridgePublicValues(
+            bridge.currentDepositState(),
+            bridge.currentDepositState(),
+            bridge.depositNonce(),
+            bridge.depositNonce(),
+            oldActionState,
+            actionState,
+            0
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector,
+                alice,
+                proverRole
+            )
+        );
+        vm.prank(alice);
+        bridge.submitBridgeTransition(publicValues, "");
     }
 
     function test_SubmitWithdrawTransition_StoresValidWithdrawState() public {

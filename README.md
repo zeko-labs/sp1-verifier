@@ -37,6 +37,19 @@ To publish it with GitHub Pages, configure the repository Pages source to:
 | `proofs/withdraw-input.json` | Withdraw input fixture with 3 withdrawals. |
 | `proofs/withdraw-input-200.json` | Withdraw input fixture with 200 withdrawals. |
 
+## Contracts, Proxies And Roles
+
+`ZekoSettlement` and `EthereumZekoBridge` are UUPS implementations intended to be deployed behind OpenZeppelin `ERC1967Proxy` proxies. Deploy a fresh implementation, then deploy an `ERC1967Proxy` with the encoded `initialize(...)` call as constructor data.
+
+Both contracts use OpenZeppelin `AccessControl` with the same role layout:
+
+- `DEFAULT_ADMIN_ROLE`: grants and revokes roles.
+- `ADMIN_ROLE`: contract administration such as token configuration, pausing, emergency withdrawals, and settlement parameter updates.
+- `PROVER_ROLE`: submits SP1 proof transitions to the contracts.
+- `UPGRADER_ROLE`: authorizes UUPS implementation upgrades.
+
+The initializer grants all four roles to the initial admin. Proof submission is intentionally separated from admin operations so relayers can be permissioned without giving them upgrade or configuration rights.
+
 ## Settlement Circuit
 
 The settlement program in `program/settlement` verifies a Zeko/o1 proof inside SP1.
